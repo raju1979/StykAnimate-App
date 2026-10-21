@@ -15,7 +15,6 @@ $env:STYK_MCP_TOKEN = node -e "console.log(require('node:crypto').randomBytes(32
 $env:STYK_MCP = '1'
 $env:STYK_MCP_PORT = '47832'
 $env:STYK_STARTUP_VIEW = 'editor'
-npm start
 ```
 
 Keep the token available to the client process too. The app binds only to
@@ -25,6 +24,10 @@ app needs its own port; configure its client with the matching port and token.
 The server operates on that app's active project tab.
 
 ## Connect a client
+
+Register the client before running the blocking `npm start` command, using the
+same terminal and environment settings. If you already started the app, stop it
+with Ctrl+C, register the client, then run `npm start` again with the same token.
 
 Run one of these commands with your actual absolute checkout path:
 
@@ -41,8 +44,40 @@ same token on subsequent app launches, or update the client configuration when
 rotating it. Restart/reconnect the client after configuration changes. No AI
 API key is required by StykAnimate; the chosen client supplies the model.
 
+Now launch the desktop editor from the same terminal:
+
+```powershell
+npm start
+```
+
 Try: "Inspect my StykAnimate project, move the first figure 20 canvas units to
 the right, and show me a preview."
+
+## Linux/macOS shell setup
+
+From the repository root after installing dependencies:
+
+```sh
+export STYK_MCP_TOKEN="$(node -e "console.log(require('node:crypto').randomBytes(32).toString('hex'))")"
+export STYK_MCP=1
+export STYK_MCP_PORT=47832
+export STYK_STARTUP_VIEW=editor
+```
+
+Register the client you use (or both), then start the app in this same shell:
+
+```sh
+codex mcp add stykanimate --env "STYK_MCP_TOKEN=$STYK_MCP_TOKEN" --env "STYK_MCP_PORT=$STYK_MCP_PORT" -- node "$PWD/scripts/mcp-server.mjs"
+claude mcp add --transport stdio --env "STYK_MCP_TOKEN=$STYK_MCP_TOKEN" --env "STYK_MCP_PORT=$STYK_MCP_PORT" stykanimate -- node "$PWD/scripts/mcp-server.mjs"
+npm start
+```
+
+Linux is supported; the upstream macOS build target is untested. The app and
+client must use the same token on every launch. Registration stores the token
+in local client configuration; never commit that configuration or share it.
+
+Client references: [Codex MCP](https://developers.openai.com/codex/mcp) and
+[Claude Code MCP](https://code.claude.com/docs/en/mcp).
 
 ## Tools
 

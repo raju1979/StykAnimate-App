@@ -1,3 +1,19 @@
+# StykAnimate MCP — community fork
+
+[![License: GPL v3 or later](https://img.shields.io/badge/License-GPLv3%2B-blue.svg)](LICENSE)
+
+Animate stick figures from **Claude Code or Codex** using a local MCP server.
+This fork adds 13 tools for inspecting the editor, posing joints, creating
+keyframes, duplicating figures and previewing your animation.
+
+Maintained in [raju1979/StykAnimate-App](https://github.com/raju1979/StykAnimate-App).
+Based on [StykAnimate by filippocalippo and its contributors](https://github.com/filippocalippo/StykAnimate-App).
+This is an independent community fork; the upstream website, browser app and
+download links below refer to the original project. **To use this fork's MCP
+features, run this repository's desktop app from source.**
+
+[Connect through MCP](#ai-control-with-mcp) · [Tool reference](docs/MCP.md#tools) · [License](#license)
+
 <p align="center">
   <img src="assets/brand/svg/stykanimate-horizontal-primary.svg" alt="StykAnimate" width="420">
 </p>
@@ -59,9 +75,109 @@ The browser build: `npm run web:build`, then `npm run web:preview`. See [Web bui
 
 ## AI control with MCP
 
-The desktop app has an experimental, opt-in MCP integration for Claude Code and
-Codex: inspect projects, preview the editor and make undoable edits. See
-[MCP setup and tools](docs/MCP.md).
+The MCP server connects Claude Code or Codex to the **running desktop editor**.
+Edits appear in the app and participate in its normal undo/redo history. The
+connection stays on your computer; StykAnimate itself needs no AI API key.
+
+### 1. Install this fork
+
+Install Node.js 22+ (24.11 is used by CI), Python 3.11+, Git, and either the
+[Codex CLI](https://developers.openai.com/codex/cli) or
+[Claude Code](https://code.claude.com/docs/en/overview).
+
+```sh
+git clone https://github.com/raju1979/StykAnimate-App.git
+cd StykAnimate-App
+npm ci
+python -m pip install -r backend/requirements-fast.txt
+```
+
+### 2. Configure the local connection
+
+In **PowerShell**, from the repository root, run:
+
+```powershell
+$env:STYK_MCP_TOKEN = node -e "console.log(require('node:crypto').randomBytes(32).toString('hex'))"
+$env:STYK_MCP = '1'
+$env:STYK_MCP_PORT = '47832'
+$env:STYK_STARTUP_VIEW = 'editor'
+$mcpServer = Join-Path (Get-Location) 'scripts/mcp-server.mjs'
+```
+
+Then register **one or both clients in that same terminal**, before starting
+the app. The absolute server path is calculated from your checkout location.
+
+**Codex:**
+
+```powershell
+codex mcp add stykanimate --env "STYK_MCP_TOKEN=$env:STYK_MCP_TOKEN" --env "STYK_MCP_PORT=$env:STYK_MCP_PORT" -- node "$mcpServer"
+```
+
+**Claude Code:**
+
+```powershell
+claude mcp add --transport stdio --env "STYK_MCP_TOKEN=$env:STYK_MCP_TOKEN" --env "STYK_MCP_PORT=$env:STYK_MCP_PORT" stykanimate -- node "$mcpServer"
+```
+
+See [Linux/macOS commands and detailed setup](docs/MCP.md) for other shells.
+The MCP client launches the stdio server automatically; do not start a second
+`npm run mcp` process by hand.
+
+### 3. Start animating
+
+Start the desktop app **in the same PowerShell terminal**:
+
+```powershell
+npm start
+```
+
+Open or restart your chosen AI client, check that `stykanimate` is connected
+(`codex mcp list` or Claude Code's `/mcp`), and try:
+
+> Inspect my current StykAnimate project and show me a preview.
+
+> Create a 24 FPS walk animation using the figure's hand and foot IK controls.
+
+> Duplicate the figure, color the second one orange, and create a short sparring animation.
+
+Keep the app open, pause playback, dismiss dialogs, and return to **Animate**
+before asking the AI to edit. The tools act on the active project tab. Save your
+project and export media through the app when you are happy with the result.
+
+### Available tools
+
+| Task | MCP tools |
+| --- | --- |
+| Inspect and preview | `get_project`, `get_figure`, `get_frame_preview` |
+| Create and style a second figure | `duplicate_figure`, `set_figure_color` |
+| Animate | `insert_keyframe`, `pose_joint`, `configure_ik`, `move_figure`, `seek`, `set_fps` |
+| Correct edits | `undo`, `redo` |
+
+See the [complete argument reference](docs/MCP.md#tools). This initial integration
+does not create new rigs or expose saving and video export as MCP tools. The
+browser app does not host this local MCP bridge.
+
+### Connection help
+
+- **Connection refused:** launch this fork with `STYK_MCP=1`; check that app and client use the same port.
+- **Unauthorized:** app and client must use the same `STYK_MCP_TOKEN`.
+- **Finish the current interaction:** pause playback, close dialogs, leave Home/Build and finish any drag.
+- **New terminal or app restart:** restore the same token and environment settings before launching the app, or re-register the client with a newly generated token. The registration commands store the token in local client configuration; keep it private and out of Git.
+- **PowerShell npm launcher error:** try `npm.cmd` in place of `npm`.
+
+Automation is disabled by default. When enabled, the bridge listens only on
+`127.0.0.1` and requires a token of at least 32 characters.
+
+### Reproducible demos
+
+```sh
+node scripts/demo-mcp-walk.mjs          # 48-frame walk at 24 FPS
+node scripts/demo-mcp-walk.mjs --fight  # 144-frame, two-figure sparring scene
+```
+
+These demos launch an isolated editor, author the animation through MCP, save
+an editable project, capture previews and leave playback open. Use empty output
+directories; [the demo guide](docs/MCP.md#walking-demo) explains file locations.
 
 ## Tests
 
@@ -97,7 +213,14 @@ Bug reports, ideas, translations and pull requests are welcome. Read [CONTRIBUTI
 
 ## License
 
-StykAnimate is free software: you can redistribute it and/or modify it under the terms of the [GNU General Public License](LICENSE), version 3 or (at your option) any later version. Bundled third-party components keep their own licenses; see [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
+This fork, including its MCP integration, is published under the
+[GNU General Public License v3.0 or later (GPL-3.0-or-later)](LICENSE), preserving
+the upstream project's licensing and attribution. StykAnimate is free software:
+you can redistribute it and/or modify it under version 3 of the GPL or, at your
+option, any later version. The original project is by
+[filippocalippo and its contributors](https://github.com/filippocalippo/StykAnimate-App).
+Bundled third-party components keep their own licenses; see
+[THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
 
 ## Trademarks
 
