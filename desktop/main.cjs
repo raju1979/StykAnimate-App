@@ -8,6 +8,8 @@ const os = require('node:os');
 const fs = require('node:fs/promises');
 const { mkdirSync, existsSync } = require('node:fs');
 const { startDesktopHost } = require('./web-host.cjs');
+const { startAutomation, rendererDispatch } = require('./automation.cjs');
+let automation;
 const { applyGpuSwitches, relaunchOnX11 } = require('./gpu-switches.cjs');
 const { RecoveryStore, atomicWrite } = require('./recovery.cjs');
 const { FileStreams } = require('./file-streams.cjs');
@@ -896,6 +898,21 @@ async function start() {
   nativeMenu();
   registerIpc();
   await createWindow();
+  if (process.env.STYK_MCP === '1') {
+    const dispatch = rendererDispatch({ipcMain, getWindow: () => window});
+    automation = await startAutomation({token: process.env.STYK_MCP_TOKEN,
+      port: Number(process.env.STYK_MCP_PORT || 47832),
+      dispatch: async (method, args) => {
+        const result = await dispatch(method, args);
+        if (method !== 'get_frame_preview') return result;
+        if (!window || window.isDestroyed()) throw new Error('No editor window.');
+        const image = await window.webContents.capturePage();
+        const size = image.getSize(), scale = Math.min(1, 1600 / Math.max(size.width, size.height));
+        const thumbnail = scale < 1 ? image.resize({width: Math.round(size.width * scale)}) : image;
+        return {png: thumbnail.toPNG().toString('base64')};
+      }});
+    console.error(`StykAnimate automation listening on 127.0.0.1:${automation.port}`);
+  }
   updates.start();
   app.on('activate', () => { if (!window) createWindow(); });
 }
@@ -909,5 +926,6 @@ app.on('before-quit', (event) => {
 });
 app.on('window-all-closed', () => { if (process.platform !== 'darwin') app.quit(); });
 app.on('will-quit', () => updates?.dispose());
+app.on('will-quit', () => automation?.close());
 app.on('will-quit', () => { backend?.stop(); library?.dispose().catch(() => {}); fileStreams?.dispose().catch(() => {}); videoExports?.dispose().catch(() => {}); vfwExports?.dispose().catch(() => {}); audioImports?.dispose().catch(() => {}); });
 process.on('exit', () => backend?.stop());
