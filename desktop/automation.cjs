@@ -1,7 +1,7 @@
 'use strict';
 const http = require('node:http');
 const {randomBytes, timingSafeEqual} = require('node:crypto');
-const METHODS = new Set(['get_project', 'get_frame_preview', 'seek', 'move_figure', 'set_fps', 'undo', 'redo']);
+const METHODS = new Set(['get_project', 'get_frame_preview', 'get_figure', 'duplicate_figure', 'set_figure_color', 'insert_keyframe', 'pose_joint', 'configure_ik', 'seek', 'move_figure', 'set_fps', 'undo', 'redo']);
 
 // Opt-in and loopback-only. The caller supplies a secret through its environment.
 async function startAutomation({token, port = 0, dispatch}) {

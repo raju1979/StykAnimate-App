@@ -26,7 +26,7 @@ try {
   }
   client = new Client({name: 'stykanimate-smoke', version: '1.0.0'});
   await client.connect(new StdioClientTransport({command: process.execPath, args: [path.join(root, 'scripts/mcp-server.mjs')], env: {...process.env, STYK_MCP_TOKEN: token, STYK_MCP_PORT: String(port)}}));
-  const listed = await client.listTools(); assert.equal(listed.tools.length, 7);
+  const listed = await client.listTools(); assert.equal(listed.tools.length, 13);
   const call = async (name, args = {}) => {
     const result = await client.callTool({name, arguments: args});
     assert.ok(!result.isError, JSON.stringify(result)); return result;

@@ -50,6 +50,12 @@ the right, and show me a preview."
 | --- | --- | --- |
 | get_project | none | Canvas dimensions, FPS, tick, dirty state, keyframe count, up to 1000 visible-frame instances |
 | get_frame_preview | none | PNG of the app window, including editor overlays, scaled to at most 1600 pixels on the longest edge |
+| get_figure | uid | Select a figure and return up to 1000 named joints, native IDs, lengths and world coordinates |
+| duplicate_figure | uid | Duplicate a figure with its pose and IK rig; return the new instance UID |
+| set_figure_color | uid, color | Apply a solid #RRGGBB color to one figure instance |
+| insert_keyframe | uid, tick | Insert a pose key on the figure's layer, extend duration if needed, and seek to the key |
+| pose_joint | uid, jointId, x, y | Pose a joint without stretching; enabled hand/foot controllers solve their limb with IK |
+| configure_ik | uid, jointId, bendDirection | Choose -1 or 1 for the bend side of an existing enabled IK controller; 0 restores automatic bending |
 | seek | tick | Seek using zero-based ticks, clamped by the editor |
 | move_figure | uid, dx, dy | One undoable translation in canvas units at the current tick; joined figures can move together |
 | set_fps | fps | One undoable project FPS change (1–1000) |
@@ -58,9 +64,23 @@ the right, and show me a preview."
 
 Commands reject while the editor is starting, playing, showing Home or a dialog,
 building a figure, or handling a drag. Close overlays and return to Animate first.
-This version does not create rigs, author joint poses or keyframes, save projects,
-or export movies; use the app for these operations. A translation is the first
-supported pose edit. Saving remains an explicit manual action.
+This version does not create rigs, save projects, or export movies; use the app
+for these operations. Joint coordinates are targets: fixed bone lengths and
+constraints may limit reach. get_figure updates selection, so it is not a pure
+read operation. Saving remains an explicit manual action.
+
+## Walking demo
+
+`node scripts/demo-mcp-walk.mjs` opens an isolated editor and authors a 48-frame
+walk at 24 FPS through the stdio MCP tools. It then uses the app's Save command
+to save an editable project, captures previews, and leaves playback running.
+Files go to artifacts/walk and artifacts/walk-work by default; STYK_DEMO_OUTPUT
+and STYK_DEMO_WORK select different directories. Use empty demo directories;
+the script saves blue-walk.styk there. Close the app to finish the demo process.
+Add `--fight` to author a 144-frame two-figure sparring scene instead: blue and
+orange fighters approach, punch/dodge, counter-kick, recover and retreat. This
+saves stick-fight.styk. Both demos capture their authored frames through MCP and
+use ordinary app presentation commands to hide handles and onion skins.
 
 ## Implementation and verification
 
