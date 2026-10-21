@@ -419,7 +419,7 @@ try {
     await page.waitForTimeout(150); const rendererInfo = await page.evaluate(installProbe, {frameIndex: config.frameIndex, importView});
     const backendHealth = await page.evaluate(async () => (await fetch('/api/health')).json());
     if (config.expectedScanner) assert.equal(backendHealth.nativeFrameScanner, config.expectedScanner, 'Actual desktop backend selected an unexpected native-frame scanner.');
-    if (config.expectedScanner === 'cpp') {
+    if (['cpp', 'rust'].includes(config.expectedScanner)) {
       assert.equal(backendHealth.nativeFrameScannerInfo?.abi, 1);
       assert.ok(Object.entries(sourceCodeHashesBefore).some(([file, digest]) => /\.(dll|so|dylib)$/.test(file)
         && digest === backendHealth.nativeFrameScannerInfo.sha256), 'Actual loaded scanner binary does not match the frozen runtime hash inventory.');

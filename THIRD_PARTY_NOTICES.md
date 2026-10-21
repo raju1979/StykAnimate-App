@@ -22,6 +22,7 @@ StykAnimate is licensed under the GNU GPL, version 3 or later (see [LICENSE](LIC
 | [imageio-ffmpeg](https://github.com/imageio/imageio-ffmpeg) | Supplies the FFmpeg binary | BSD-2-Clause | [scripts/licenses/ffmpeg/IMAGEIO-FFMPEG-LICENSE.txt](scripts/licenses/ffmpeg/IMAGEIO-FFMPEG-LICENSE.txt) |
 | [Electron](https://www.electronjs.org) and Chromium | Desktop runtime | MIT and Chromium's licenses | Shipped as `LICENSE.electron.txt` and `LICENSES.chromium.html` in every desktop build |
 | Python and the packages in [`backend/requirements-fast.txt`](backend/requirements-fast.txt) | The local codec service, packaged with PyInstaller | PSF and each package's license | Included in the packaged codec service |
+| [Rust standard library](https://github.com/rust-lang/rust) (optional Rust builds) | Runtime support linked into the frame-validation helper | MIT OR Apache-2.0, with bundled dependency notices | The build copies the toolchain's `LICENSE-MIT`, `LICENSE-APACHE` and `COPYRIGHT` into the codec service's `THIRD_PARTY/rust` directory |
 
 npm dependencies are listed with their licenses in [package-lock.json](package-lock.json).
 

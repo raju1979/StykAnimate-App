@@ -28,6 +28,10 @@ What's new in each version of StykAnimate.
 
 - Fixed an error when deleting your last color palette.
 
+### Performance
+
+- Optional Rust acceleration reduces the time spent checking large Pivot animations before they open.
+
 ## [1.2.5]
 
 Layer folders, camera follow and smoother editing

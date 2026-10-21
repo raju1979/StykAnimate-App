@@ -29,9 +29,16 @@ module.exports = async function beforePack(context) {
       throw new Error(`The frozen codec is stale for ${filename}; run npm run build:sidecar.`);
   }
   const scanner = manifest.nativeScanner;
+  const scannerSource = scanner?.implementation === 'rust' ? 'native/rust-frame-scan/src/lib.rs' : 'native/piv-frame-scan.cpp';
   if (scanner?.abiVersion !== 1 || scanner.platform !== context.electronPlatformName || scanner.architecture !== architecture ||
-      scanner.source?.sha256 !== hash(await fs.readFile(path.join(appRoot,'native','piv-frame-scan.cpp'))))
+      scanner.source?.sha256 !== hash(await fs.readFile(path.join(appRoot, scannerSource))))
     throw new Error('Build and freeze the current native PIV scanner before packaging.');
+  if (scanner.implementation === 'rust') {
+    for (const relative of ['native/rust-frame-scan/Cargo.toml', 'native/rust-frame-scan/Cargo.lock', 'native/rust-frame-scan/src/lib.rs']) {
+      if (scanner.sources?.[relative] !== hash(await fs.readFile(path.join(appRoot, relative))))
+        throw new Error('The Rust scanner is stale; rebuild it and the sidecar before packaging.');
+    }
+  }
   const scannerName=context.electronPlatformName==='win32'?'styk-piv-frame-scan.dll':context.electronPlatformName==='darwin'?'libstyk-piv-frame-scan.dylib':'libstyk-piv-frame-scan.so';
   if(scanner.library?.sha256!==hash(await fs.readFile(path.join(appRoot,'build','sidecar','styk-codec','_internal','native',scannerName))))
     throw new Error('The frozen native PIV scanner differs from its verified build.');

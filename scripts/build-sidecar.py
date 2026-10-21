@@ -38,6 +38,9 @@ def main() -> int:
     sys.path[:0] = [str(app_root / "codecs"), str(app_root / "backend")]
     import native_scan
     scanner_directory = native_scan.build_directory(app_root, sys.platform, architecture)
+    rust_directory = native_scan.build_directory(app_root, sys.platform, architecture, implementation="rust")
+    if (rust_directory / "frame-scan-build-info.json").is_file():
+        scanner_directory = rust_directory
     scanner_manifest = scanner_directory / "frame-scan-build-info.json"
     if not scanner_manifest.is_file():
         print("Build the native PIV scanner for this host first: npm run build:frame-scan", file=sys.stderr)
@@ -45,7 +48,10 @@ def main() -> int:
     scanner = json.loads(scanner_manifest.read_text(encoding="utf-8"))
     scanner_library = scanner_directory / native_scan.library_name()
     digest = lambda file: hashlib.sha256(file.read_bytes()).hexdigest()
-    if scanner.get("platform") != sys.platform or scanner.get("architecture") != architecture or scanner.get("abiVersion") != 1 or not scanner_library.is_file() or scanner.get("library", {}).get("sha256") != digest(scanner_library) or scanner.get("source", {}).get("sha256") != digest(app_root / "native" / "piv-frame-scan.cpp"):
+    source_file = app_root / ("native/rust-frame-scan/src/lib.rs" if scanner.get("implementation") == "rust" else "native/piv-frame-scan.cpp")
+    rust_sources_valid = scanner.get("implementation") != "rust" or scanner.get("sources") == {
+        relative: digest(app_root / relative) for relative in ["native/rust-frame-scan/Cargo.toml", "native/rust-frame-scan/Cargo.lock", "native/rust-frame-scan/src/lib.rs"]}
+    if scanner.get("platform") != sys.platform or scanner.get("architecture") != architecture or scanner.get("abiVersion") != 1 or not scanner_library.is_file() or scanner.get("library", {}).get("sha256") != digest(scanner_library) or scanner.get("source", {}).get("sha256") != digest(source_file) or not rust_sources_valid:
         print("The native PIV scanner is stale or built for another host; run npm run build:frame-scan", file=sys.stderr)
         return 1
     command = [
@@ -83,6 +89,12 @@ def main() -> int:
         for entry in distribution.files or []:
             if "/licenses/" in str(entry).replace("\\", "/"):
                 shutil.copyfile(distribution.locate_file(entry), license_output / Path(entry).name)
+        if scanner.get("implementation") == "rust":
+            notices = scanner_directory / "licenses" / "rust"
+            for name in ["COPYRIGHT", "LICENSE-MIT", "LICENSE-APACHE"]:
+                if scanner.get("licenses", {}).get(name) != digest(notices / name):
+                    raise ValueError("Rust standard-library notices are missing or stale; rebuild the Rust scanner")
+            shutil.copytree(notices, output / "THIRD_PARTY" / "rust", dirs_exist_ok=True)
         manifest = {"platform": sys.platform, "architecture": architecture, "python": platform.python_version(),
                     "orjson": orjson.__version__, "pyinstaller": importlib.metadata.version("PyInstaller"), "nativeScanner": scanner,
                     "runtimeSources": {name: digest(app_root / "backend" / name) for name in ["server.py", "fast_decode.py", "import_wire.py", "native_scan.py", "native_format.py", "jobs.py"]},
