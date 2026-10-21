@@ -6,6 +6,7 @@ import os
 import random
 import struct
 import unittest
+from concurrent.futures import ThreadPoolExecutor
 from unittest import mock
 
 import server
@@ -26,15 +27,15 @@ class NativeScanTests(unittest.TestCase):
         if not status["available"]:
             if os.environ.get("STYK_REQUIRE_NATIVE_SCAN") == "1":
                 raise AssertionError(f"Native scanner required: {status}")
-            raise unittest.SkipTest(f"Build scripts/build-frame-scan.py to test C++: {status}")
+            raise unittest.SkipTest(f"Build a Rust or C++ frame scanner first: {status}")
 
-    def compare(self, source, *, prefix=b"", budget=BUDGET):
+    def compare(self, source, *, prefix=b"", budget=BUDGET, figures=FIGURES):
         outcomes = []
         for decoder in (fast_decode.scan_keyframes_python, native_scan.scan_keyframes):
             reader = server.FastReader(prefix + source)
             reader.pos = len(prefix)
             try:
-                result = decoder(reader, FIGURES, 2, max_pose_bytes=budget)
+                result = decoder(reader, figures, 2, max_pose_bytes=budget)
             except server.piv_codec.PivError:
                 outcomes.append((False,))
             else:
@@ -42,6 +43,15 @@ class NativeScanTests(unittest.TestCase):
                 outcomes.append((True, result, reader.pos))
         self.assertEqual(*outcomes)
         return outcomes[0][0]
+
+    def test_media_poses_and_parallel_calls_keep_private_state(self):
+        figures = [{**FIGURES[0], 'image_assets': [{}]}]
+        source = frame_bytes([{'uid': i, 'length': 3.5, 'bend': -.2,
+                               **({'join': (i - 1, 1)} if i else {})}
+                              for i in range(100)], media=True, camera=(0., -0., 1., 1.))
+        self.assertTrue(self.compare(source, figures=figures))
+        with ThreadPoolExecutor(max_workers=4) as pool:
+            self.assertTrue(all(pool.map(lambda _: self.compare(source, figures=figures), range(32))))
 
     def test_deterministic_byte_mutations_and_truncations_match_python(self):
         frames = [frame_bytes([{"uid": 0xFFFFFFFF, "length": 3, "bend": .2},

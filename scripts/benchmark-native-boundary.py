@@ -1,4 +1,4 @@
-"""Matched existing Python/C++ import experiment; no production code changes.
+"""Matched Python/native import experiment; no production code changes.
 
 Run from the repository root with a .piv path and optional --out / --pairs.
 The timed decode includes the ctypes wrapper, metadata packing and duration
@@ -38,8 +38,9 @@ def main():
         status = fast_decode.native_scan.status()
         if not status["available"]:
             raise RuntimeError(f"Native comparison requires a built scanner: {status}")
+        implementation = status.get("implementation", "cpp")
         for pair in range(args.pairs):
-            for mode in (["python", "cpp"] if pair % 2 == 0 else ["cpp", "python"]):
+            for mode in (["python", implementation] if pair % 2 == 0 else [implementation, "python"]):
                 os.environ["STYK_DISABLE_NATIVE_SCAN"] = "1" if mode == "python" else "0"
                 gc.collect()
                 scans = []
@@ -71,7 +72,7 @@ def main():
             "source_sha256": sha(data), "source_bytes": len(data), "native": status, "rows": rows,
             "limitations": ["Same process, alternating order; OS file cache and allocator are warm.",
                 "Peak memory is lifetime high water, not a per-variant delta.",
-                "C++ measured wrapper includes metadata and output conversion, not just the C call.",
+                "The native wrapper includes metadata and output conversion, not just the C call.",
                 "No HTTP/browser/GPU work; no full parsed pose materialization."]}
         args.out.parent.mkdir(parents=True, exist_ok=True)
         args.out.write_text(json.dumps(report, indent=2) + "\n", encoding="utf-8")

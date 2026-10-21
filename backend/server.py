@@ -177,7 +177,7 @@ def health_payload(jobs_snapshot: dict, session: str | None, *, max_import: int 
         "codec": "Pivot verified grammar / bulk reader", "versions": [2, 3, 4, 5],
         "formats": ["piv", "stk", "styk", "stkz", "stykmov"], "maxImportBytes": MAX_SOURCE if max_import is None else max_import,
         "jsonEncoder": JSON_ENCODER, "processMemoryMiB": memory_mib(),
-        "nativeFrameScanner": "cpp" if scanner["available"] else "python",
+        "nativeFrameScanner": scanner.get("implementation", "cpp") if scanner["available"] else "python",
         "nativeFrameScannerInfo": {"abi": scanner["abi"], "sha256": scanner["sha256"]} if scanner["available"] else None,
         "session": session}
 

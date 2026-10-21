@@ -284,6 +284,16 @@ row is diagnostic only; native transport avoids those allocations in production.
 
 ### Optional native validation accelerator
 
+The optional Rust implementation in `native/rust-frame-scan` uses the same ABI
+and is preferred when built with `npm run build:frame-scan:rust`. It lives in
+`native/bin/rust-<platform>-<arch>` and does not overwrite the C++ binary.
+The loader reports `rust`, `cpp` or `python` in `/api/health`; a missing or
+incompatible Rust library falls back to C++, then Python. Explicit
+`STYK_NATIVE_SCAN_LIBRARY` overrides automatic selection. Cancellation is checked
+before entering the native call and again before publishing its result. Native
+calls finish before that second checkpoint, as with other synchronous codecs.
+See [Rust acceleration](../docs/RUST-ACCELERATION.md) for setup and evidence.
+
 `python scripts/build-frame-scan.py` builds `native/piv-frame-scan.cpp` for the
 current platform. Windows uses MSVC with its [static `/MT` runtime](https://learn.microsoft.com/en-us/cpp/build/reference/md-mt-ld-use-run-time-library),
 while Linux and macOS produce a shared library with the host C++17 compiler.

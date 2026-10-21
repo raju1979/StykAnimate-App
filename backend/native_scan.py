@@ -1,4 +1,4 @@
-"""Optional portable C++ PIV frame validator, with no Python pose allocation.
+"""Optional Rust/C++ PIV frame validator, with no Python pose allocation.
 
 Only immutable byte buffers cross the ABI; the library writes into a bounded
 caller-owned duration array and fixed result structure. No native allocation is
@@ -16,6 +16,7 @@ import sys
 import threading
 
 from piv_codec import PivError
+from work_control import checkpoint
 
 ROOT = Path(__file__).resolve().parents[1]
 _lock = threading.Lock()
@@ -43,7 +44,7 @@ def library_name(platform_name=None):
     return "libstyk-piv-frame-scan.dylib" if platform_name == "darwin" else "libstyk-piv-frame-scan.so"
 
 
-def build_directory(root=ROOT, platform_name=None, arch=None):
+def build_directory(root=ROOT, platform_name=None, arch=None, implementation="cpp"):
     """Where a source checkout builds and finds the library for one platform.
 
     Windows keeps the historical native/bin/<arch>: its prebuilt binaries and the
@@ -55,6 +56,8 @@ def build_directory(root=ROOT, platform_name=None, arch=None):
     base = Path(root) / "native" / "bin"
     arch = arch or architecture()
     platform_name = platform_name or sys.platform
+    if implementation == "rust":
+        return base / f"rust-{platform_name}-{arch}"
     return base / arch if platform_name == "win32" else base / f"{platform_name}-{arch}"
 
 
@@ -68,6 +71,7 @@ def _load():
         _attempted = True
         explicit = os.environ.get("STYK_NATIVE_SCAN_LIBRARY")
         candidates = [Path(explicit)] if explicit else [
+            build_directory(implementation="rust") / library_name(),
             build_directory() / library_name(),
             Path(getattr(sys, "_MEIPASS", ROOT)) / "native" / library_name(),
             Path(sys.executable).resolve().parent / "native" / library_name()]
@@ -87,7 +91,15 @@ def _load():
                     ctypes.POINTER(ctypes.c_uint16), ctypes.c_uint32, ctypes.POINTER(ScanResult)]
                 library.styk_piv_scan.restype = ctypes.c_uint32
                 digest = hashlib.sha256(candidate.read_bytes()).hexdigest()
-                _status = {"available": True, "path": str(candidate.resolve()), "abi": 1, "sha256": digest}
+                implementation = "cpp"
+                marker = getattr(library, "styk_piv_scan_implementation", None)
+                if marker is not None:
+                    marker.argtypes = []
+                    marker.restype = ctypes.c_uint32
+                    if marker() != 2:
+                        raise ValueError("Unknown native PIV scanner implementation")
+                    implementation = "rust"
+                _status = {"available": True, "path": str(candidate.resolve()), "abi": 1, "sha256": digest, "implementation": implementation}
                 _library = library
                 return library
             except (OSError, AttributeError, ValueError) as error:
@@ -130,6 +142,7 @@ _ERRORS = {1: "Unexpected EOF", 2: "Implausible keyframe count", 4: "Unknown bac
 
 def scan_keyframes(reader, figures, bg_slots, *, max_pose_bytes):
     """Return validated duration shells, or None when the accelerator is absent."""
+    checkpoint()
     library = _load()
     if library is None:
         return None
@@ -154,6 +167,7 @@ def scan_keyframes(reader, figures, bg_slots, *, max_pose_bytes):
     result = ScanResult()
     error = library.styk_piv_scan(data, len(data), start, metadata, len(metadata), bg_slots,
         max_pose_bytes, durations, count, ctypes.byref(result))
+    checkpoint()  # Never publish a completed result after cancellation.
     reader.pos = result.end_offset
     if error:
         if error in (7, 8):

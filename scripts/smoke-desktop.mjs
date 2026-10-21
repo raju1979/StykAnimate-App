@@ -50,7 +50,7 @@ try {
     actual.packageFilesSha256=createHash('sha256').update(JSON.stringify([...manifest.files].sort((a,b)=>a.path.localeCompare(b.path)))).digest('hex');
   }
   if (packaged && actual.backend.jsonEncoder !== 'orjson') throw new Error('The packaged backend did not use the compiled JSON encoder.');
-  if (packaged && actual.backend.nativeFrameScanner !== 'cpp') throw new Error('The packaged backend did not load its native PIV scanner.');
+  if (packaged && !['cpp', 'rust'].includes(actual.backend.nativeFrameScanner)) throw new Error('The packaged backend did not load its native PIV scanner.');
   if (packaged) {
     actual.videoCapabilities = await page.evaluate(() => window.stykDesktop.getVideoCapabilities({width:320,height:240}));
     for (const format of ['mp4','avi','wmv','webm']) {

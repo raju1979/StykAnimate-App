@@ -1,0 +1,36 @@
+name: Rust frame scanner
+on:
+  push:
+    branches: [main]
+    paths: ['native/rust-frame-scan/**', 'backend/**', 'scripts/build-rust-scan.py', '.github/workflows/rust-scan.yml']
+  pull_request:
+    paths: ['native/rust-frame-scan/**', 'backend/**', 'scripts/build-rust-scan.py', '.github/workflows/rust-scan.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  native:
+    strategy:
+      matrix:
+        os: [windows-latest, ubuntu-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 15
+    env:
+      RUSTUP_TOOLCHAIN: '1.85.1'
+      STYK_REQUIRE_NATIVE_SCAN: '1'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12.9'
+      - name: Install pinned Rust toolchain
+        run: rustup toolchain install 1.85.1 --profile minimal --component rustfmt,clippy
+      - name: Check Rust
+        run: |
+          cargo fmt --manifest-path native/rust-frame-scan/Cargo.toml --check
+          cargo clippy --locked --manifest-path native/rust-frame-scan/Cargo.toml -- -D warnings
+          cargo test --locked --manifest-path native/rust-frame-scan/Cargo.toml
+      - name: Build and compare with Python
+        run: |
+          python scripts/build-rust-scan.py
+          python -m unittest discover -s backend -p "test_native_scan*.py" -v

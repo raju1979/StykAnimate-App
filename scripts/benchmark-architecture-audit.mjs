@@ -15,7 +15,7 @@ if (!source) throw new Error('Provide a PIV fixture path.');
 const pairs = Number(process.argv[3] ?? 2);
 assert.ok(Number.isInteger(pairs) && pairs >= 1 && pairs <= 10);
 const scanner = process.env.STYK_BENCH_SCANNER;
-assert.ok(!scanner || ['python', 'cpp'].includes(scanner), 'STYK_BENCH_SCANNER must be python or cpp');
+assert.ok(!scanner || ['python', 'cpp', 'rust', 'native'].includes(scanner), 'STYK_BENCH_SCANNER must be python, cpp, rust or native');
 const output = path.resolve('artifacts/performance-architecture-audit', `desktop-${Date.now()}`);
 await mkdir(output, {recursive: true});
 const filename = path.resolve(source), sourceBytes = await readFile(filename);
@@ -29,7 +29,7 @@ const report = {at: new Date().toISOString(), source: {name: path.basename(filen
     'Working-set sums can double-count shared pages; backend is reported separately.',
     'No physical display, GPU timestamp, OS allocation or long-session leak measurement.']};
 let expectedDigest;
-for (let pair = 0; pair < pairs; pair++) for (const mode of (scanner ? [scanner] : pair % 2 ? ['cpp', 'python'] : ['python', 'cpp'])) {
+for (let pair = 0; pair < pairs; pair++) for (const mode of (scanner ? [scanner] : pair % 2 ? ['native', 'python'] : ['python', 'native'])) {
   const profile = path.join(output, `${pair}-${mode}`), env = {...process.env,
     STYK_USER_DATA_DIR: profile, STYK_LIBRARY_DIR: path.join(profile, 'library'),
     STYK_DISABLE_NATIVE_SCAN: mode === 'python' ? '1' : '0'};
@@ -49,7 +49,8 @@ for (let pair = 0; pair < pairs; pair++) for (const mode of (scanner ? [scanner]
     const startupMs = performance.now() - start;
     const baseline = await app.evaluate(({app}) => ({versions: process.versions, processes: app.getAppMetrics()}));
     const baselineHealth = await page.evaluate(() => fetch('/api/health').then(r => r.json()));
-    assert.equal(baselineHealth.nativeFrameScanner, mode);
+    if (mode === 'native') assert.ok(['cpp', 'rust'].includes(baselineHealth.nativeFrameScanner));
+    else assert.equal(baselineHealth.nativeFrameScanner, mode);
     await app.evaluate(({BrowserWindow}) => {const win = BrowserWindow.getAllWindows()[0]; win.webContents.setBackgroundThrottling(false); win.setIgnoreMouseEvents(true); win.setFocusable(false); win.showInactive();});
     await page.evaluate(() => {for (const dialog of document.querySelectorAll('dialog[open]')) dialog.close(); styk.editor.markSaved();});
     await app.evaluate(({dialog}, file) => {dialog.showOpenDialog = async () => ({canceled: false, filePaths: [file]});}, filename);

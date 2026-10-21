@@ -62,6 +62,22 @@ npm run serve        # or the editor in your browser at http://127.0.0.1:47831
 
 Set `STYK_PYTHON` to choose a Python interpreter. Optional native helpers speed up large imports (`npm run build:frame-scan`); the Python fallbacks always work.
 
+### Optional Rust acceleration
+
+Keep the existing app and enable its first Rust component: Pivot v5 frame
+validation during import. Install Rust/Cargo 1.85+ and a platform linker
+(Visual Studio C++ Build Tools with the Windows SDK on Windows), then run:
+
+```sh
+npm run build:frame-scan:rust
+npm start
+```
+
+The app prefers the built Rust helper and retains C++ and Python fallbacks.
+Rust is a build-time requirement; end users of a packaged build do not need
+Cargo. The interface, MCP tools, animation model and undo history stay the same.
+See [Rust setup, benchmarks and limitations](docs/RUST-ACCELERATION.md).
+
 Packaging, on the matching operating system:
 
 ```sh

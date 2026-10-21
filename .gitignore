@@ -26,6 +26,8 @@ samples/
 # Native libraries built on Linux/macOS. Windows keeps native/bin/<arch>, which is tracked.
 native/bin/linux-*/
 native/bin/darwin-*/
+native/bin/rust-*/
+native/rust-frame-scan/target/
 
 # Local Python environments.
 .venv/

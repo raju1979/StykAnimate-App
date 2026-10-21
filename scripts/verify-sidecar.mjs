@@ -29,7 +29,7 @@ try {
   }
   if (!health) throw new Error(`The frozen codec did not start.\n${output}`);
   assert.equal(health.jsonEncoder, 'orjson', 'A release sidecar must use the compiled JSON encoder.');
-  assert.equal(health.nativeFrameScanner, 'cpp', 'A release sidecar must load the bundled C++ PIV scanner.');
+  assert.ok(['cpp', 'rust'].includes(health.nativeFrameScanner), 'A release sidecar must load a bundled native PIV scanner.');
   assert.deepEqual({active: health.jobs?.active, queued: health.jobs?.queued}, {active: 0, queued: 0});
   const jobId = randomUUID().replaceAll('-', '');
   assert.equal((await fetch(`${origin}/api/cancel?id=${jobId}`, {method: 'POST', body: ''})).status, 204);

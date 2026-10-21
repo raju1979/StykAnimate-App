@@ -53,7 +53,7 @@ try {
   expect('The codec answers', facts.health?.ok === true, `${facts.health?.jsonEncoder}, scanner ${facts.health?.nativeFrameScanner}`);
   if (packaged) {
     expect('The frozen codec uses the compiled JSON encoder', facts.health.jsonEncoder === 'orjson');
-    expect('The frozen codec loaded its native scanner', facts.health.nativeFrameScanner === 'cpp');
+    expect('The frozen codec loaded its native scanner', ['cpp', 'rust'].includes(facts.health.nativeFrameScanner));
     for (const id of ['webm', 'mp4', 'avi', 'wmv']) expect(`The bundled encoder exports ${id}`, facts.video.formats?.some((format) => format.id === id && format.supported));
   }
   expect('Installed Windows codecs are offered only on Windows', process.platform === 'win32' || facts.vfw === false);

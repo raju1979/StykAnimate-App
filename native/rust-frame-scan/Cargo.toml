@@ -1,0 +1,16 @@
+[package]
+name = "styk-piv-frame-scan"
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.85"
+license = "GPL-3.0-or-later"
+publish = false
+
+[lib]
+name = "styk_piv_frame_scan"
+crate-type = ["cdylib", "rlib"]
+
+[profile.release]
+lto = true
+codegen-units = 1
+strip = "debuginfo"
