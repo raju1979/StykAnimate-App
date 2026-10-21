@@ -29,6 +29,7 @@ import {segmentPaint, parseColor, hexColor, backgroundPaint, paintBackground, pa
 import {resolveInstanceFigure, polygonIdentity} from './animation-style.mjs';
 import { applicationMenuItems } from "./application-menu.mjs";
 import { Editor } from "./editor.mjs";
+import { createAutomation } from './automation.mjs';
 import { createRenderer,worldToScreen,screenToWorld } from "./renderer.mjs";
 import {DrawingController} from './drawing-controller.mjs';
 import { ROW as TIMELINE_ROW, HEADER as TIMELINE_RULER } from "./layer-timeline.mjs";
@@ -6175,6 +6176,21 @@ window.styk = {
   ready: false,
 };
 let thumbnailRenderer, nativeFrameClipboard, sharedClipboard;
+if (desktop?.onAutomationCommand) {
+  const execute = createAutomation({editor, ready: () => window.styk.ready,
+    busy: () => state.playing || state.drag || editor._drag || builderMode?.active ||
+      document.querySelector('dialog[open]') || home.shown,
+    preview: async () => {
+      requestRender();
+      await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+      return {ready: true};
+    }});
+  const unsubscribe = desktop.onAutomationCommand(async ({id, method, args}) => {
+    try { desktop.completeAutomationCommand({id, result: await execute(method, args)}); }
+    catch (error) { desktop.completeAutomationCommand({id, error: error.message}); }
+  });
+  window.addEventListener('pagehide', unsubscribe, {once: true});
+}
 async function changeFigureLayer(label, operation, {labelKey} = {}) {
   pause();
   finishKeyboardHandle();

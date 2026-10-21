@@ -17,6 +17,9 @@
   "main": "desktop/main.cjs",
   "desktopName": "stykanimate.desktop",
   "scripts": {
+    "mcp": "node scripts/mcp-server.mjs",
+    "test:mcp": "node --test tests/automation.test.mjs",
+    "test:mcp:desktop": "node scripts/smoke-mcp.mjs",
     "start": "electron .",
     "dev": "electron .",
     "serve": "node scripts/serve.mjs",
@@ -94,7 +97,9 @@
     "release:publish": "node scripts/publish-release.mjs"
   },
   "dependencies": {
-    "electron-updater": "6.6.2"
+    "@modelcontextprotocol/sdk": "1.32.1",
+    "electron-updater": "6.6.2",
+    "zod": "4.6.7"
   },
   "devDependencies": {
     "electron": "39.8.10",

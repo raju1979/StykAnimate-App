@@ -54,6 +54,8 @@ function startupView() {
 // Node.js, Electron object, or arbitrary IPC channel crosses this boundary.
 contextBridge.exposeInMainWorld('stykDesktop', Object.freeze({
   isDesktop: true,
+  onAutomationCommand: callback => subscribe('styk:automation-command', callback),
+  completeAutomationCommand: value => ipcRenderer.send('styk:automation-result', value),
   apiToken: apiToken(),
   startupView: startupView(),
   // Page zoom keeps CSS layout, pointer coordinates and devicePixelRatio aligned.

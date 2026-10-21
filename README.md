@@ -57,6 +57,12 @@ npm run dist:win     # or dist:linux, dist:mac
 
 The browser build: `npm run web:build`, then `npm run web:preview`. See [Web build](docs/WEB.md), [Linux](docs/LINUX.md) and [Touch interface](docs/TOUCH.md).
 
+## AI control with MCP
+
+The desktop app has an experimental, opt-in MCP integration for Claude Code and
+Codex: inspect projects, preview the editor and make undoable edits. See
+[MCP setup and tools](docs/MCP.md).
+
 ## Tests
 
 ```sh
