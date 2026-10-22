@@ -14,6 +14,11 @@ features, run this repository's desktop app from source.**
 
 [Connect through MCP](#ai-control-with-mcp) · [Tool reference](docs/MCP.md#tools) · [License](#license)
 
+An experimental [standalone Rust editor](native/rust-app/README.md) is also in
+development, with native MCP support. It currently uses separate preview
+projects; original file compatibility and full feature parity are still
+[in progress](docs/RUST-APP-PARITY.md).
+
 <p align="center">
   <img src="assets/brand/svg/stykanimate-horizontal-primary.svg" alt="StykAnimate" width="420">
 </p>

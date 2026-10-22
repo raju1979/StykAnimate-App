@@ -8,6 +8,7 @@ What's new in each version of StykAnimate.
 
 ### Added
 
+- An experimental standalone Rust editor with a polished workspace, an editable motion-study demo, independent figure layers, Camera and Scene animation tracks, preview-project saving, basic image exports and MCP control.
 - Connect Claude Code or Codex to inspect projects, preview frames, duplicate and color figures, and animate joints with undoable pose keyframes.
 - StykAnimate is now open source: its code is on GitHub under the GPL-3.0 license.
 - Everyday Props · Pivot 3D: 30 editable everyday objects with working hinges and wheels for your animations.
@@ -26,6 +27,7 @@ What's new in each version of StykAnimate.
 
 ### Fixed
 
+- The Rust preview has a clearer save-changes dialog, with aligned actions and visible save errors.
 - Fixed an error when deleting your last color palette.
 
 ### Performance
