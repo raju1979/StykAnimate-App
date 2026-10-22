@@ -28,6 +28,7 @@ native/bin/linux-*/
 native/bin/darwin-*/
 native/bin/rust-*/
 native/rust-frame-scan/target/
+native/rust-app/target/
 
 # Local Python environments.
 .venv/

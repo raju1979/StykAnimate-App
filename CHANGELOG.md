@@ -8,6 +8,7 @@ What's new in each version of StykAnimate.
 
 ### Added
 
+- An experimental standalone Rust editor with stick-figure posing, animation playback, preview-project saving, basic image exports and MCP control.
 - Connect Claude Code or Codex to inspect projects, preview frames, duplicate and color figures, and animate joints with undoable pose keyframes.
 - StykAnimate is now open source: its code is on GitHub under the GPL-3.0 license.
 - Everyday Props · Pivot 3D: 30 editable everyday objects with working hinges and wheels for your animations.
