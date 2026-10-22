@@ -27,6 +27,7 @@ What's new in each version of StykAnimate.
 
 ### Fixed
 
+- The Rust preview has a clearer save-changes dialog, with aligned actions and visible save errors.
 - Fixed an error when deleting your last color palette.
 
 ### Performance

@@ -173,6 +173,8 @@ For an application-owned screenshot without UI automation:
 
 ```powershell
 .\stykanimate-rust-preview.exe --walk --screenshot C:\absolute\path\preview.png
+# Inspect the unsaved-changes dialog; the preview flag only works with capture.
+.\stykanimate-rust-preview.exe --preview-unsaved --screenshot C:\absolute\path\dialog.png
 ```
 
 ## License

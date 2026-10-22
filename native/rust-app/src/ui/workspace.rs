@@ -284,6 +284,106 @@ fn section(ui: &mut egui::Ui, title: &str, color: Color32) {
 }
 
 impl App {
+    pub(super) fn unsaved_dialog(&mut self, ctx: &egui::Context) {
+        if self.pending.is_none() && !self.quit_prompt {
+            return;
+        }
+        let mut choice = None;
+        let frame = egui::Frame::popup(&ctx.style())
+            .fill(Color32::WHITE)
+            .corner_radius(14)
+            .inner_margin(24)
+            .stroke(Stroke::new(1., LINE));
+        let response = egui::Modal::new(egui::Id::new("unsaved_changes"))
+            .frame(frame)
+            .backdrop_color(Color32::from_black_alpha(64))
+            .show(ctx, |ui| {
+                ui.set_width(440.0_f32.min(ctx.screen_rect().width() - 80.));
+                ui.spacing_mut().item_spacing = Vec2::new(8., 8.);
+                ui.horizontal(|ui| {
+                    let (r, _) = ui.allocate_exact_size(Vec2::splat(40.), Sense::hover());
+                    ui.painter()
+                        .rect_filled(r, 12., Color32::from_rgb(232, 245, 255));
+                    icon(ui, r, 8, BLUE);
+                    ui.add_space(6.);
+                    ui.vertical(|ui| {
+                        ui.spacing_mut().item_spacing.y = 3.;
+                        ui.label(semibold("Save your changes?", 19.));
+                        let mut name = self.editor.doc.name.chars().take(64).collect::<String>();
+                        if self.editor.doc.name.chars().count() > 64 {
+                            name.push('…');
+                        }
+                        ui.label(RichText::new(name).size(12.).color(MUTED));
+                    });
+                });
+                ui.add_space(10.);
+                ui.label(
+                    RichText::new(if self.quit_prompt {
+                        "Save your work before closing StykAnimate."
+                    } else {
+                        "Save your work before opening another animation."
+                    })
+                    .size(13.)
+                    .color(INK),
+                );
+                ui.label(
+                    RichText::new("Unsaved edits will be lost if you discard them.")
+                        .size(12.)
+                        .color(MUTED),
+                );
+                if let Some(error) = &self.save_error {
+                    ui.add_space(4.);
+                    ui.colored_label(
+                        Color32::from_rgb(190, 57, 57),
+                        format!("Couldn’t save: {error}"),
+                    );
+                }
+                ui.add_space(18.);
+                ui.horizontal(|ui| {
+                    ui.add_space((ui.available_width() - 336.).max(0.));
+                    if ui
+                        .add_sized(
+                            Vec2::new(88., 36.),
+                            egui::Button::new("Cancel")
+                                .fill(Color32::WHITE)
+                                .stroke(Stroke::new(1., LINE)),
+                        )
+                        .clicked()
+                    {
+                        choice = Some(UnsavedChoice::Cancel);
+                    }
+                    if ui
+                        .add_sized(
+                            Vec2::new(108., 36.),
+                            egui::Button::new("Discard").fill(SOFT),
+                        )
+                        .clicked()
+                    {
+                        choice = Some(UnsavedChoice::Discard);
+                    }
+                    if ui
+                        .add_sized(
+                            Vec2::new(124., 36.),
+                            egui::Button::new(semibold("Save changes", 12.).color(Color32::WHITE))
+                                .fill(BLUE),
+                        )
+                        .clicked()
+                    {
+                        choice = Some(UnsavedChoice::Save);
+                    }
+                });
+            });
+        if response.is_top_modal
+            && !response.any_popup_open
+            && ctx.input_mut(|i| i.consume_key(egui::Modifiers::NONE, egui::Key::Escape))
+        {
+            choice = Some(UnsavedChoice::Cancel);
+        }
+        if let Some(choice) = choice {
+            self.resolve_unsaved(ctx, choice);
+        }
+    }
+
     fn toggle_play(&mut self) {
         self.playing = !self.playing;
         self.last = Instant::now();

@@ -81,6 +81,7 @@ fn main() -> eframe::Result<()> {
         .and_then(|i| args.get(i + 1))
         .and_then(|v| v.parse::<u32>().ok())
         .unwrap_or(0);
+    let preview_unsaved = args.iter().any(|a| a == "--preview-unsaved");
     eframe::run_native(
         "StykAnimate Rust Preview",
         options,
@@ -88,7 +89,8 @@ fn main() -> eframe::Result<()> {
             Ok(Box::new(
                 ui::App::new(context, doc, capture)
                     .with_track(track)
-                    .at_tick(tick),
+                    .at_tick(tick)
+                    .preview_unsaved(preview_unsaved),
             ))
         }),
     )

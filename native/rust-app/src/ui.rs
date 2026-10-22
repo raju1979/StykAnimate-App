@@ -41,8 +41,22 @@ pub struct App {
     pan_tool: bool,
     grid: bool,
     timeline_scroll: f32,
+    save_error: Option<String>,
+}
+#[derive(Clone, Copy)]
+enum UnsavedChoice {
+    Save,
+    Discard,
+    Cancel,
 }
 impl App {
+    pub fn preview_unsaved(mut self, enabled: bool) -> Self {
+        if enabled && self.capture.is_some() {
+            self.editor.dirty = true;
+            self.pending = Some(Document::default());
+        }
+        self
+    }
     pub fn at_tick(mut self, tick: u32) -> Self {
         self.editor.tick = tick.min(self.editor.doc.duration - 1);
         self
@@ -95,6 +109,7 @@ impl App {
             pan_tool: false,
             grid: false,
             timeline_scroll: 0.,
+            save_error: None,
         };
         app.editor.doc = doc;
         if std::env::var("STYK_MCP").as_deref() == Ok("1") {
@@ -120,6 +135,7 @@ impl App {
     }
     fn replace(&mut self, doc: Document) {
         self.playing = false;
+        self.save_error = None;
         if self.editor.dirty {
             self.pending = Some(doc);
         } else {
@@ -127,6 +143,7 @@ impl App {
         }
     }
     fn save(&mut self, save_as: bool) -> bool {
+        self.save_error = None;
         let file = if save_as || self.path.is_none() {
             rfd::FileDialog::new()
                 .add_filter("Rust preview project", &["json"])
@@ -146,10 +163,29 @@ impl App {
                 true
             }
             Err(error) => {
+                self.save_error = Some(error.clone());
                 self.status = error;
                 false
             }
         }
+    }
+    fn resolve_unsaved(&mut self, ctx: &egui::Context, choice: UnsavedChoice) {
+        if matches!(choice, UnsavedChoice::Cancel) {
+            self.pending = None;
+            self.quit_prompt = false;
+            self.save_error = None;
+            return;
+        }
+        if matches!(choice, UnsavedChoice::Save) && !self.save(false) {
+            return;
+        }
+        if self.quit_prompt {
+            self.force_close = true;
+            ctx.send_viewport_cmd(egui::ViewportCommand::Close);
+        } else if let Some(doc) = self.pending.take() {
+            self.load(doc);
+        }
+        self.save_error = None;
     }
     fn edit(&mut self, method: &str, args: serde_json::Value) {
         self.playing = false;
@@ -537,31 +573,7 @@ impl eframe::App for App {
         self.timeline(ctx);
         self.inspector(ctx);
         self.stage(ctx);
-        if self.pending.is_some() || self.quit_prompt {
-            egui::Modal::new(egui::Id::new("Unsaved changes")).show(ctx, |ui| {
-                ui.heading("Unsaved changes");
-                ui.label("Save the current preview project before continuing?");
-                let mut proceed = false;
-                if ui.button("Save and continue").clicked() {
-                    proceed = self.save(false);
-                }
-                if ui.button("Discard changes").clicked() {
-                    proceed = true;
-                }
-                if proceed {
-                    if self.quit_prompt {
-                        self.force_close = true;
-                        ctx.send_viewport_cmd(egui::ViewportCommand::Close);
-                    } else if let Some(doc) = self.pending.take() {
-                        self.load(doc);
-                    }
-                }
-                if ui.button("Cancel").clicked() {
-                    self.pending = None;
-                    self.quit_prompt = false;
-                }
-            });
-        }
+        self.unsaved_dialog(ctx);
         if self.capture.is_some() && self.frames >= 5 && !self.capture_requested {
             ctx.send_viewport_cmd(egui::ViewportCommand::Screenshot(egui::UserData::default()));
             self.capture_requested = true;
@@ -615,6 +627,7 @@ mod tests {
                 app.timeline(ctx);
                 app.inspector(ctx);
                 app.stage(ctx);
+                app.unsaved_dialog(ctx);
             },
         )
     }
@@ -673,5 +686,102 @@ mod tests {
         assert!(app.editor.doc.layers[1].keys[&0].figures.is_empty());
         assert_eq!(app.editor.doc.camera_keys.len(), 1);
         assert_eq!(app.editor.doc.scene_keys.len(), 1);
+    }
+    fn text_position(output: &egui::FullOutput, text: &str) -> Pos2 {
+        output
+            .shapes
+            .iter()
+            .find_map(|shape| match &shape.shape {
+                egui::Shape::Text(t) if t.galley.job.text == text => {
+                    Some(t.pos + t.galley.size() / 2.)
+                }
+                _ => None,
+            })
+            .unwrap_or_else(|| panic!("Missing modal text: {text}"))
+    }
+    #[test]
+    fn unsaved_dialog_actions_share_one_row_and_cancel_keeps_work() {
+        let ctx = egui::Context::default();
+        let mut app = App::create(&ctx, Document::default(), None);
+        app.edit("move_figure", serde_json::json!({"uid":1,"dx":20,"dy":0}));
+        let before = app.editor.doc.clone();
+        app.replace(Document::walk());
+        draw(&mut app, &ctx, vec![]);
+        draw(&mut app, &ctx, vec![]);
+        let output = draw(&mut app, &ctx, vec![]);
+        let cancel = text_position(&output, "Cancel");
+        let discard = text_position(&output, "Discard");
+        let save = text_position(&output, "Save changes");
+        assert!((cancel.y - discard.y).abs() < 1. && (cancel.y - save.y).abs() < 1.);
+        assert!(cancel.x < discard.x && discard.x < save.x);
+        click(&mut app, &ctx, cancel);
+        assert!(app.pending.is_none());
+        assert!(app.editor.dirty);
+        assert_eq!(app.editor.doc, before);
+        app.replace(Document::walk());
+        draw(&mut app, &ctx, vec![]);
+        draw(
+            &mut app,
+            &ctx,
+            vec![egui::Event::Key {
+                key: egui::Key::Escape,
+                physical_key: None,
+                pressed: true,
+                repeat: false,
+                modifiers: egui::Modifiers::NONE,
+            }],
+        );
+        assert!(app.pending.is_none());
+        assert_eq!(app.editor.doc, before);
+        assert!(app.editor.dirty);
+    }
+    #[test]
+    fn save_before_replacement_preserves_work_and_failed_save_stays_open() {
+        let ctx = egui::Context::default();
+        let mut app = App::create(&ctx, Document::default(), None);
+        let directory = tempfile::tempdir().unwrap();
+        let protected = directory.path().join("original.styk");
+        std::fs::write(&protected, b"original bytes").unwrap();
+        app.edit("move_figure", serde_json::json!({"uid":1,"dx":20,"dy":0}));
+        let before = app.editor.doc.clone();
+        let next = Document::walk();
+        app.replace(next.clone());
+        app.path = Some(protected.clone());
+        app.resolve_unsaved(&ctx, UnsavedChoice::Save);
+        assert_eq!(std::fs::read(protected).unwrap(), b"original bytes");
+        assert!(app.pending.is_some());
+        assert!(app.save_error.is_some());
+        assert!(app.editor.dirty);
+        assert_eq!(app.editor.doc, before);
+        let saved = directory.path().join("saved.rustanim.json");
+        app.path = Some(saved.clone());
+        app.resolve_unsaved(&ctx, UnsavedChoice::Save);
+        assert_eq!(Document::open(&saved).unwrap(), before);
+        assert_eq!(app.editor.doc, next);
+        assert!(app.pending.is_none());
+        assert!(app.save_error.is_none());
+        assert!(!app.editor.dirty);
+    }
+    #[test]
+    fn discard_replaces_without_saving_and_close_cancel_keeps_document() {
+        let ctx = egui::Context::default();
+        let mut app = App::create(&ctx, Document::default(), None);
+        app.edit("move_figure", serde_json::json!({"uid":1,"dx":20,"dy":0}));
+        let before = app.editor.doc.clone();
+        app.quit_prompt = true;
+        app.resolve_unsaved(&ctx, UnsavedChoice::Cancel);
+        assert!(!app.quit_prompt);
+        assert!(!app.force_close);
+        assert_eq!(app.editor.doc, before);
+        assert!(app.editor.dirty);
+        let directory = tempfile::tempdir().unwrap();
+        let file = directory.path().join("untouched.rustanim.json");
+        app.path = Some(file.clone());
+        let next = Document::walk();
+        app.replace(next.clone());
+        app.resolve_unsaved(&ctx, UnsavedChoice::Discard);
+        assert_eq!(app.editor.doc, next);
+        assert!(!app.editor.dirty);
+        assert!(!file.exists());
     }
 }
