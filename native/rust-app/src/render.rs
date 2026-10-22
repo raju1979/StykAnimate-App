@@ -53,13 +53,13 @@ fn line(image: &mut RgbaImage, a: Point, b: Point, width: f32, color: [u8; 3]) {
     }
 }
 pub fn raster(document: &Document, tick: f32) -> RgbaImage {
-    let c = document.background;
+    let c = document.scene(tick).background;
     let mut image = RgbaImage::from_pixel(
         document.width,
         document.height,
         Rgba([c[0], c[1], c[2], 255]),
     );
-    for figure in document.sample(tick).figures {
+    for figure in document.rendered(tick).figures {
         let points = figure.points();
         for (i, bone) in figure.bones.iter().enumerate() {
             let start = bone.parent.map(|i| points[i]).unwrap_or(figure.root);
@@ -97,11 +97,11 @@ pub fn atomic_bytes(path: &Path, bytes: &[u8]) -> Result<()> {
     Ok(())
 }
 pub fn svg(document: &Document, tick: f32) -> String {
-    let bg = document.background;
+    let bg = document.scene(tick).background;
     let mut output=format!("<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"{}\" height=\"{}\" viewBox=\"0 0 {} {}\"><rect width=\"100%\" height=\"100%\" fill=\"rgb({},{},{})\"/>",document.width,document.height,document.width,document.height,bg[0],bg[1],bg[2]);
     for Figure {
         root, color, bones, ..
-    } in document.sample(tick).figures
+    } in document.rendered(tick).figures
     {
         let figure = Figure {
             id: 1,
@@ -193,5 +193,19 @@ mod tests {
         assert!(gif(&d, &path, &AtomicBool::new(true)).is_err());
         assert_eq!(std::fs::read(path).unwrap(), b"existing");
         assert!(svg(&d, 0.).contains("<circle"));
+    }
+    #[test]
+    fn exported_pixels_follow_camera_scene_and_layer_visibility() {
+        let mut d = Document::default();
+        let blue = Rgba([13, 153, 255, 255]);
+        assert_eq!(*raster(&d, 0.).get_pixel(480, 270), blue);
+        d.camera_keys.get_mut(&0).unwrap().center.x += 100.;
+        d.scene_keys.get_mut(&0).unwrap().background = [20, 30, 40];
+        let image = raster(&d, 0.);
+        assert_eq!(*image.get_pixel(380, 270), blue);
+        assert_eq!(*image.get_pixel(480, 270), Rgba([20, 30, 40, 255]));
+        assert!(svg(&d, 0.).contains("cx=\"380\""));
+        d.layers[0].visible = false;
+        assert_eq!(*raster(&d, 0.).get_pixel(380, 270), Rgba([20, 30, 40, 255]));
     }
 }

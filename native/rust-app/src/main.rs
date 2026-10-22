@@ -2,6 +2,7 @@ mod api;
 mod mcp;
 mod model;
 mod render;
+mod tracks;
 mod ui;
 
 fn main() -> eframe::Result<()> {
@@ -42,9 +43,18 @@ fn main() -> eframe::Result<()> {
             .with_min_inner_size([900., 600.]),
         ..Default::default()
     };
+    let track = args
+        .iter()
+        .position(|a| a == "--track")
+        .and_then(|i| args.get(i + 1))
+        .cloned();
     eframe::run_native(
         "StykAnimate Rust Preview",
         options,
-        Box::new(move |context| Ok(Box::new(ui::App::new(context, doc, capture)))),
+        Box::new(move |context| {
+            Ok(Box::new(
+                ui::App::new(context, doc, capture).with_track(track),
+            ))
+        }),
     )
 }

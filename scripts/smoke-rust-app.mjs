@@ -24,7 +24,7 @@ gui.on('error', error => {stderr += error.message;});
 const client = new Client({name: 'native-rust-smoke', version: '1.0.0'});
 try {
   await client.connect(new StdioClientTransport({command: executable, args: ['--mcp'], env}));
-  assert.equal((await client.listTools()).tools.length, 15);
+  assert.equal((await client.listTools()).tools.length, 27);
   const call = async (name, args = {}) => {
     const result = await client.callTool({name, arguments: args});
     assert.ok(!result.isError, JSON.stringify(result));
@@ -57,18 +57,49 @@ try {
   const file = path.join(directory, 'two-figures.rustanim.json');
   await call('save_project', {path: file});
   const saved = JSON.parse(await readFile(file, 'utf8'));
-  assert.equal(saved.keys['12'].figures.length, 2);
+  assert.equal(saved.layers[0].keys['12'].figures.length, 2);
   const preview = (await call('get_frame_preview')).content[0];
   assert.equal(preview.type, 'image');
   const png = Buffer.from(preview.data, 'base64');
   assert.equal(png.subarray(1, 4).toString(), 'PNG');
   await writeFile(path.join(directory, 'preview.png'), png);
+  // Layer/Camera/Scene operations must edit independent tracks in the live GUI.
+  const layer = await value('add_layer', {name: 'Opponent'});
+  const other = await value('add_figure');
+  await call('set_layer', {layerId: layer.layerId, locked: true});
+  const locked = await client.callTool({name: 'move_figure', arguments: {uid: other.uid, dx: 100, dy: 0}});
+  assert.equal(locked.isError, true);
+  await call('set_layer', {layerId: layer.layerId, locked: false});
+  await call('move_to_layer', {uid: duplicate.uid, layerId: layer.layerId});
+  await call('select_track', {track: 'camera'});
+  await call('set_camera', {x: 520, y: 270, zoom: 1.5, angle: 8});
+  assert.equal((await value('get_project')).camera.zoom, 1.5);
+  await call('set_track_lock', {track: 'camera', locked: true});
+  assert.equal((await client.callTool({name: 'set_camera', arguments: {zoom: 3}})).isError, true);
+  await call('undo');
+  assert.equal((await value('get_project')).cameraLocked, false);
+  assert.equal((await value('get_project')).camera.zoom, 1.5);
+  await call('select_track', {track: 'scene'});
+  await call('set_scene', {background: [235, 242, 255]});
+  assert.deepEqual((await value('get_project')).scene.background, [235, 242, 255]);
+  await call('set_layer', {layerId: layer.layerId, visible: false});
+  assert.equal((await value('get_project')).objects.length, 1);
+  await call('undo');
+  assert.equal((await value('get_project')).objects.length, 3);
+  await call('save_project', {path: file});
+  const layered = JSON.parse(await readFile(file, 'utf8'));
+  assert.equal(layered.version, 2);
+  assert.equal(layered.layers.length, 2);
+  assert.equal(Object.keys(layered.camera_keys).length, 2);
+  assert.equal(Object.keys(layered.scene_keys).length, 2);
+  assert.equal(layered.layers[0].keys['12'].figures.length, 1);
+  assert.equal(layered.layers[1].keys['12'].figures.length, 2);
   const wrong = new Client({name: 'unauthorized-smoke', version: '1.0.0'});
   try {
     await wrong.connect(new StdioClientTransport({command: executable, args: ['--mcp'], env: {...env, STYK_MCP_TOKEN: 'x'.repeat(64)}}));
     assert.equal((await wrong.callTool({name: 'get_project', arguments: {}})).isError, true);
   } finally {await wrong.close();}
-  console.log('PASS: native GUI, 15 MCP tools, move, undo/redo, duplicate, color, key, IK pose, rejected-edit rollback, atomic save, PNG and authentication.');
+  console.log('PASS: native GUI, 27 MCP tools, edits/history, IK, rejected-edit rollback, independent layers, locks/visibility, layer reassignment, Camera/Scene keys, v2 save, PNG and authentication.');
 } finally {
   await client.close();
   gui.kill();

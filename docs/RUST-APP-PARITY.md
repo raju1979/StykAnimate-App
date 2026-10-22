@@ -13,20 +13,20 @@ component and also does not constitute a native app rewrite.
 | Area | Native preview today | Required before claiming parity |
 | --- | --- | --- |
 | Native runtime | Rust/egui/OpenGL editor, Windows x64 exercised | Supported platform builds, installers and release checks |
-| Scene model | Flat 2D figures and ordered line/circle bones | Native IDs, joins, definitions/instances, all shape/media records, unknown-field preservation |
+| Scene model | Independent layers with 2D figures and ordered line/circle bones | Native IDs, joins, definitions/instances, all shape/media records, unknown-field preservation |
 | Posing and builder | FK rotation, two-bone IK, simple line/circle addition | Full rig constraints, pin/stretch semantics, shared-definition edits, all builder/3D commands |
 | History | Validated commands, undo/redo, one record per drag | Affected-state history, dense-scene budgets and all command parity |
-| Timeline | Whole-scene keys, hold/linear samples, playback | Independent layers, folders, focus, exposures, blank frames, property tracks, easing, retiming, range edits and animation modes |
-| Camera and composition | Fixed canvas | Camera/Scene tracks, transforms, clipping, opacity and original compositing |
+| Timeline | Independent layer/Camera/Scene keys, blank layer exposures, locks, hold/linear samples, playback | Folders, focus, property tracks, easing, retiming, range edits and all original animation modes |
+| Camera and composition | Keyed camera center/zoom/rotation and held Scene background colors; applied to stage and exports | Original scene transforms, clipping, opacity and complete compositing |
 | Rendering | Simple solid primitives, onions and frame preview | Artwork/media, text, outlines, gradients, fills, VFX, 3D and image comparison fixtures |
-| Persistence | Atomic `.rustanim.json` saves, validation, save-before-close | Native STYK/STKZ/STYKMOV v1/v2/legacy, provenance, unknown metadata, recovery, large-file limits, failure preservation |
+| Persistence | Atomic `.rustanim.json` v2 saves, v1 preview migration, validation, save-before-close | Native STYK/STKZ/STYKMOV v1/v2/legacy, provenance, unknown metadata, recovery, large-file limits, failure preservation |
 | Pivot compatibility | No import/export yet | PIV/STK versions and fixtures, joins, images, text, opaque records, unchanged byte preservation and edited export |
 | Stick Nodes | No import/export yet | Supported original Stick Nodes versions/media and cross-app round trips |
 | Movieclips | Not implemented | Nested editable clips, timing, playback and native persistence |
 | Audio and drawing | Not implemented | Audio tracks, waveform/sync/export; editable drawings and their persistence |
 | Exports | Basic PNG/SVG and streaming cancellable GIF | All original image/video/document exports, audio, timing/color/camera fidelity and bounded cancellation |
-| Workspace | One document, file dialogs and basic inspector | Home/library/folders, project tabs, recovery, preferences, localization, accessibility, keyboard/touch behavior and tutorials |
-| MCP | 15 native preview tools, authenticated local bridge | Existing tool semantics applied to original documents, cross-client regression and advanced operations as their owning features land |
+| Workspace | One document, light styled egui workspace, figure/Camera/Scene properties, viewport pan/zoom and file dialogs | Home/library/folders, project tabs, recovery, preferences, localization, accessibility, complete keyboard/touch behavior and tutorials |
+| MCP | 27 native preview tools, independent track operations, authenticated local bridge | Existing tool semantics applied to original documents, cross-client regression and advanced operations as their owning features land |
 | Performance | No overall speed claim | Same-scene measurements of interaction latency, memory, preparation and export, with correctness comparisons |
 
 ## Order of implementation

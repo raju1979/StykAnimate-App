@@ -163,7 +163,7 @@ pub fn stdio() -> Result<()> {
                 } else {
                     "2024-11-05"
                 };
-                json!({"result":{"protocolVersion":version,"serverInfo":{"name":"stykanimate-rust-preview","version":"0.1.0"},"capabilities":{"tools":{}}}})
+                json!({"result":{"protocolVersion":version,"serverInfo":{"name":"stykanimate-rust-preview","version":env!("CARGO_PKG_VERSION")},"capabilities":{"tools":{}}}})
             }
             "ping" => json!({"result":{}}),
             "tools/list" => json!({"result":{"tools":api::tools()}}),

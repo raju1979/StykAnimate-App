@@ -1,3 +1,4 @@
+use crate::tracks::{Camera, Layer, Scene, Track};
 use serde::{Deserialize, Serialize};
 use std::{collections::BTreeMap, f32::consts::PI, fs, io::Write, path::Path};
 
@@ -189,81 +190,310 @@ pub struct Document {
     pub height: u32,
     pub fps: u32,
     pub duration: u32,
-    pub background: [u8; 3],
     pub interpolation: Interpolation,
-    pub keys: BTreeMap<u32, Frame>,
+    pub layers: Vec<Layer>,
+    pub camera_keys: BTreeMap<u32, Camera>,
+    pub scene_keys: BTreeMap<u32, Scene>,
+    #[serde(default)]
+    pub camera_locked: bool,
+    #[serde(default)]
+    pub scene_locked: bool,
 }
 impl Default for Document {
     fn default() -> Self {
         Self {
             format: "StykAnimateRustPreview".into(),
-            version: 1,
+            version: 2,
             name: "Untitled animation".into(),
             width: 960,
             height: 540,
             fps: 24,
-            duration: 48,
-            background: [255, 255, 255],
+            duration: 10,
             interpolation: Interpolation::Linear,
-            keys: BTreeMap::from([(
+            layers: vec![Layer {
+                id: 1,
+                name: "Layer 1".into(),
+                visible: true,
+                locked: false,
+                keys: BTreeMap::from([(
+                    0,
+                    Frame {
+                        figures: vec![Figure::blue(1, 480., 280.)],
+                    },
+                )]),
+            }],
+            camera_keys: BTreeMap::from([(
                 0,
-                Frame {
-                    figures: vec![Figure::blue(1, 480., 280.)],
+                Camera {
+                    center: Point::new(480., 270.),
+                    zoom: 1.,
+                    angle: 0.,
                 },
             )]),
+            scene_keys: BTreeMap::from([(
+                0,
+                Scene {
+                    background: [255, 255, 255],
+                },
+            )]),
+            camera_locked: false,
+            scene_locked: false,
         }
     }
 }
 impl Document {
+    pub fn track_locked(&self, track: Track) -> bool {
+        match track {
+            Track::Camera => self.camera_locked,
+            Track::Scene => self.scene_locked,
+            Track::Layer(id) => self.layer(id).map(|l| l.locked).unwrap_or(true),
+        }
+    }
+    pub fn owner(&self, uid: u64) -> Option<u64> {
+        self.layers
+            .iter()
+            .find(|l| {
+                l.keys
+                    .values()
+                    .any(|f| f.figures.iter().any(|f| f.id == uid))
+            })
+            .map(|l| l.id)
+    }
+    pub fn layer(&self, id: u64) -> Result<&Layer> {
+        self.layers
+            .iter()
+            .find(|l| l.id == id)
+            .ok_or("Unknown layer".into())
+    }
+    pub fn layer_mut(&mut self, id: u64) -> Result<&mut Layer> {
+        self.layers
+            .iter_mut()
+            .find(|l| l.id == id)
+            .ok_or("Unknown layer".into())
+    }
+    pub fn camera(&self, tick: f32) -> Camera {
+        let tick = tick.clamp(0., self.duration.saturating_sub(1) as f32);
+        let (&start, value) = self
+            .camera_keys
+            .range(..=tick.floor() as u32)
+            .next_back()
+            .unwrap();
+        let mut camera = *value;
+        if self.interpolation == Interpolation::Linear {
+            if let Some((&end, next)) = self.camera_keys.range(start + 1..).next() {
+                let t = (tick - start as f32) / (end - start) as f32;
+                camera.center.x += (next.center.x - camera.center.x) * t;
+                camera.center.y += (next.center.y - camera.center.y) * t;
+                camera.zoom += (next.zoom - camera.zoom) * t;
+                camera.angle += shortest(next.angle - camera.angle) * t;
+            }
+        }
+        camera
+    }
+    pub fn scene(&self, tick: f32) -> Scene {
+        *self
+            .scene_keys
+            .range(..=tick.max(0.).floor() as u32)
+            .next_back()
+            .unwrap()
+            .1
+    }
+    pub fn rendered(&self, tick: f32) -> Frame {
+        let camera = self.camera(tick);
+        let mut frame = self.sample(tick);
+        for f in &mut frame.figures {
+            f.root = camera.project(f.root, self.width, self.height);
+            for b in &mut f.bones {
+                b.angle -= camera.angle;
+                b.length *= camera.zoom;
+                b.width *= camera.zoom;
+            }
+        }
+        frame
+    }
+    pub fn insert_track_key(&mut self, track: Track, tick: u32, blank: bool) -> Result<()> {
+        if self.track_locked(track) {
+            return Err("Track is locked".into());
+        }
+        if tick >= 10000 {
+            return Err("tick must be less than 10000".into());
+        }
+        match track {
+            Track::Layer(id) => {
+                let frame = self.layer_key(id, tick)?;
+                if blank {
+                    frame.figures.clear();
+                }
+            }
+            Track::Camera => {
+                let camera = self.camera(tick as f32);
+                self.camera_keys.insert(tick, camera);
+            }
+            Track::Scene => {
+                let scene = self.scene(tick as f32);
+                self.scene_keys.insert(tick, scene);
+            }
+        }
+        self.duration = self.duration.max(tick + 1);
+        Ok(())
+    }
+    pub fn delete_track_key(&mut self, track: Track, tick: u32) -> Result<()> {
+        if self.track_locked(track) {
+            return Err("Track is locked".into());
+        }
+        if tick == 0 {
+            return Err("The opening key must be retained".into());
+        }
+        match track {
+            Track::Layer(id) => {
+                let layer = self.layer_mut(id)?;
+                if layer.locked {
+                    return Err("Layer is locked".into());
+                }
+                layer.keys.remove(&tick);
+            }
+            Track::Camera => {
+                self.camera_keys.remove(&tick);
+            }
+            Track::Scene => {
+                self.scene_keys.remove(&tick);
+            }
+        }
+        Ok(())
+    }
+    pub fn resize_duration(&mut self, duration: u32) -> Result<()> {
+        if !(1..=10000).contains(&duration) {
+            return Err("Invalid duration".into());
+        }
+        self.duration = duration;
+        self.camera_keys.retain(|t, _| *t < duration);
+        self.scene_keys.retain(|t, _| *t < duration);
+        for layer in &mut self.layers {
+            layer.keys.retain(|t, _| *t < duration);
+        }
+        Ok(())
+    }
+    pub fn move_to_layer(&mut self, uid: u64, target: u64) -> Result<()> {
+        let source = self.owner(uid).ok_or("Unknown figure")?;
+        if source == target {
+            return Ok(());
+        }
+        if self.layer(source)?.locked || self.layer(target)?.locked {
+            return Err("Layer is locked".into());
+        }
+        let ticks: std::collections::BTreeSet<u32> = self
+            .layer(source)?
+            .keys
+            .keys()
+            .chain(self.layer(target)?.keys.keys())
+            .copied()
+            .collect();
+        let mut replacement = BTreeMap::new();
+        for tick in ticks {
+            let mut frame = self.sample_layer(target, tick as f32);
+            if let Some(figure) = self
+                .sample_layer(source, tick as f32)
+                .figures
+                .into_iter()
+                .find(|f| f.id == uid)
+            {
+                frame.figures.push(figure);
+            }
+            replacement.insert(tick, frame);
+        }
+        self.layer_mut(target)?.keys = replacement;
+        for frame in self.layer_mut(source)?.keys.values_mut() {
+            frame.figures.retain(|f| f.id != uid);
+        }
+        Ok(())
+    }
     pub fn validate(&self) -> Result<()> {
-        if self.format != "StykAnimateRustPreview" || self.version != 1 {
+        if self.format != "StykAnimateRustPreview" || self.version != 2 {
             return Err("This build opens only Rust preview projects; original .styk/.piv/.nodes files are not yet supported".into());
         }
         if !(64..=4096).contains(&self.width)
             || !(64..=4096).contains(&self.height)
             || !(1..=240).contains(&self.fps)
             || !(1..=10000).contains(&self.duration)
-            || !self.keys.contains_key(&0)
-            || self.keys.len() > 10000
+            || self.layers.is_empty()
+            || self.layers.len() > 128
+            || !self.camera_keys.contains_key(&0)
+            || !self.scene_keys.contains_key(&0)
+            || self
+                .camera_keys
+                .keys()
+                .chain(self.scene_keys.keys())
+                .any(|t| *t >= self.duration)
             || self.name.len() > 1024
         {
             return Err("Invalid project dimensions, timing or keys".into());
         }
         let mut count = 0;
-        for (tick, frame) in &self.keys {
-            if *tick >= self.duration || frame.figures.len() > 1000 {
-                return Err("Invalid keyframe range or figure count".into());
+        for camera in self.camera_keys.values() {
+            if !camera.center.x.is_finite()
+                || !camera.center.y.is_finite()
+                || camera.center.x.abs() > 1e6
+                || camera.center.y.abs() > 1e6
+                || !camera.zoom.is_finite()
+                || !(0.05..=20.).contains(&camera.zoom)
+                || !camera.angle.is_finite()
+                || camera.angle.abs() > 10000.
+            {
+                return Err("Invalid camera transform".into());
             }
-            let mut ids = std::collections::HashSet::new();
-            for figure in &frame.figures {
-                if figure.id == 0
-                    || figure.id >= u64::MAX - 1
-                    || !ids.insert(figure.id)
-                    || figure.name.len() > 1024
-                    || !figure.root.x.is_finite()
-                    || !figure.root.y.is_finite()
-                    || figure.root.x.abs() > 1e6
-                    || figure.root.y.abs() > 1e6
-                    || figure.bones.is_empty()
-                    || figure.bones.len() > 1000
-                {
-                    return Err("Invalid figure or identity".into());
+        }
+        let mut layer_ids = std::collections::HashSet::new();
+        let mut owners = std::collections::HashMap::new();
+        for layer in &self.layers {
+            if layer.id == 0
+                || layer.id >= u64::MAX - 1
+                || !layer_ids.insert(layer.id)
+                || layer.name.len() > 1024
+                || !layer.keys.contains_key(&0)
+            {
+                return Err("Invalid layer identity or opening key".into());
+            }
+            for (tick, frame) in &layer.keys {
+                if *tick >= self.duration || frame.figures.len() > 1000 {
+                    return Err("Invalid keyframe range or figure count".into());
                 }
-                for (i, bone) in figure.bones.iter().enumerate() {
-                    count += 1;
-                    if count > 1_000_000
-                        || bone.parent.is_some_and(|p| p >= i)
-                        || !bone.length.is_finite()
-                        || !(0.001..=10000.).contains(&bone.length)
-                        || !bone.angle.is_finite()
-                        || bone.angle.abs() > 10000.
-                        || !bone.width.is_finite()
-                        || !(0. ..=1000.).contains(&bone.width)
-                        || bone.name.len() > 1024
-                        || ![-1, 0, 1].contains(&bone.bend)
-                        || (bone.ik && bone.parent.is_none())
+                let mut ids = std::collections::HashSet::new();
+                for figure in &frame.figures {
+                    if owners
+                        .insert(figure.id, layer.id)
+                        .is_some_and(|id| id != layer.id)
                     {
-                        return Err("Invalid bone topology, size or pose".into());
+                        return Err("A figure cannot belong to multiple layers".into());
+                    }
+                    if figure.id == 0
+                        || figure.id >= u64::MAX - 1
+                        || !ids.insert(figure.id)
+                        || figure.name.len() > 1024
+                        || !figure.root.x.is_finite()
+                        || !figure.root.y.is_finite()
+                        || figure.root.x.abs() > 1e6
+                        || figure.root.y.abs() > 1e6
+                        || figure.bones.is_empty()
+                        || figure.bones.len() > 1000
+                    {
+                        return Err("Invalid figure or identity".into());
+                    }
+                    for (i, bone) in figure.bones.iter().enumerate() {
+                        count += 1;
+                        if count > 1_000_000
+                            || bone.parent.is_some_and(|p| p >= i)
+                            || !bone.length.is_finite()
+                            || !(0.001..=10000.).contains(&bone.length)
+                            || !bone.angle.is_finite()
+                            || bone.angle.abs() > 10000.
+                            || !bone.width.is_finite()
+                            || !(0. ..=1000.).contains(&bone.width)
+                            || bone.name.len() > 1024
+                            || ![-1, 0, 1].contains(&bone.bend)
+                            || (bone.ik && bone.parent.is_none())
+                        {
+                            return Err("Invalid bone topology, size or pose".into());
+                        }
                     }
                 }
             }
@@ -271,9 +501,23 @@ impl Document {
         Ok(())
     }
     pub fn sample(&self, tick: f32) -> Frame {
+        Frame {
+            figures: self
+                .layers
+                .iter()
+                .filter(|l| l.visible)
+                .flat_map(|l| self.sample_layer(l.id, tick).figures)
+                .collect(),
+        }
+    }
+    pub fn sample_layer(&self, id: u64, tick: f32) -> Frame {
+        let Some(layer) = self.layers.iter().find(|l| l.id == id) else {
+            return Frame { figures: vec![] };
+        };
+        let keys = &layer.keys;
         let tick = tick.clamp(0., self.duration.saturating_sub(1) as f32);
-        let (&start, from) = self.keys.range(..=tick.floor() as u32).next_back().unwrap();
-        let next = self.keys.range(start + 1..).next();
+        let (&start, from) = keys.range(..=tick.floor() as u32).next_back().unwrap();
+        let next = keys.range(start + 1..).next();
         if self.interpolation == Interpolation::Hold || next.is_none() {
             return from.clone();
         }
@@ -302,27 +546,37 @@ impl Document {
         }
         frame
     }
-    pub fn key(&mut self, tick: u32) -> &mut Frame {
+    pub fn layer_key(&mut self, id: u64, tick: u32) -> Result<&mut Frame> {
+        let index = self
+            .layers
+            .iter()
+            .position(|l| l.id == id)
+            .ok_or("Unknown layer")?;
+        if self.layers[index].locked {
+            return Err("Layer is locked".into());
+        }
         // Sampling borrows the complete document, so it cannot run inside an
         // entry closure that already holds a mutable borrow of the key map.
         #[allow(clippy::map_entry)]
-        if !self.keys.contains_key(&tick) {
-            let sample = self.sample(tick as f32);
-            self.keys.insert(tick, sample);
+        if !self.layers[index].keys.contains_key(&tick) {
+            let sample = self.sample_layer(id, tick as f32);
+            self.layers[index].keys.insert(tick, sample);
         }
         self.duration = self.duration.max(tick + 1);
-        self.keys.get_mut(&tick).unwrap()
+        Ok(self.layers[index].keys.get_mut(&tick).unwrap())
     }
     pub fn figure_mut(&mut self, tick: u32, id: u64) -> Result<&mut Figure> {
-        self.key(tick)
+        let layer = self.owner(id).ok_or("Unknown figure")?;
+        self.layer_key(layer, tick)?
             .figures
             .iter_mut()
             .find(|f| f.id == id)
             .ok_or("Unknown figure".into())
     }
     pub fn next_id(&self) -> u64 {
-        self.keys
-            .values()
+        self.layers
+            .iter()
+            .flat_map(|l| l.keys.values())
             .flat_map(|f| f.figures.iter().map(|f| f.id))
             .max()
             .unwrap_or(0)
@@ -330,11 +584,16 @@ impl Document {
     }
     pub fn memory_bytes(&self) -> usize {
         std::mem::size_of::<Self>()
+            + self.camera_keys.len() * (std::mem::size_of::<Camera>() + 64)
+            + self.scene_keys.len() * (std::mem::size_of::<Scene>() + 64)
+            + self.layers.capacity() * std::mem::size_of::<Layer>()
+            + self.layers.iter().map(|l| l.name.capacity()).sum::<usize>()
             + self.name.capacity()
             + self.format.capacity()
             + self
-                .keys
-                .values()
+                .layers
+                .iter()
+                .flat_map(|l| l.keys.values())
                 .map(|frame| {
                     80 + frame.figures.capacity() * std::mem::size_of::<Figure>()
                         + frame
@@ -373,8 +632,31 @@ impl Document {
             return Err("Project exceeds the preview's 16 MiB limit".into());
         }
         let bytes = fs::read(path).map_err(|e| e.to_string())?;
-        let document: Self = serde_json::from_slice(&bytes)
+        let mut value: serde_json::Value = serde_json::from_slice(&bytes)
             .map_err(|e| format!("Unsupported or invalid preview project: {e}"))?;
+        if value["format"] == "StykAnimateRustPreview" && value["version"] == 1 {
+            let object = value.as_object_mut().ok_or("Invalid document")?;
+            let keys = object.remove("keys").ok_or("Missing legacy keys")?;
+            let width = object
+                .get("width")
+                .and_then(|v| v.as_u64())
+                .ok_or("Invalid width")? as f32;
+            let height = object
+                .get("height")
+                .and_then(|v| v.as_u64())
+                .ok_or("Invalid height")? as f32;
+            let bg = object
+                .remove("background")
+                .ok_or("Missing legacy background")?;
+            object.insert("version".into(), serde_json::json!(2));
+            object.insert("layers".into(), serde_json::json!([{ "id":1, "name":"Layer 1", "visible":true, "locked":false, "keys":keys }]));
+            object.insert("camera_keys".into(), serde_json::json!({"0":{"center":{"x":width/2.,"y":height/2.},"zoom":1.,"angle":0.}}));
+            object.insert(
+                "scene_keys".into(),
+                serde_json::json!({"0":{"background":bg}}),
+            );
+        }
+        let document: Self = serde_json::from_value(value).map_err(|e| e.to_string())?;
         document.validate()?;
         Ok(document)
     }
@@ -384,7 +666,7 @@ impl Document {
             duration: 48,
             ..Self::default()
         };
-        doc.keys.clear();
+        doc.layers[0].keys.clear();
         for tick in 0..48 {
             let phase = (tick % 24) as f32 / 24.;
             let angle = phase * PI * 2.;
@@ -416,7 +698,7 @@ impl Document {
                     )
                     .unwrap();
             }
-            doc.keys.insert(
+            doc.layers[0].keys.insert(
                 tick,
                 Frame {
                     figures: vec![figure],
@@ -436,6 +718,7 @@ pub struct Editor {
     pub doc: Document,
     pub tick: u32,
     pub selected: u64,
+    pub track: Track,
     pub dirty: bool,
     undo: Vec<Change>,
     redo: Vec<Change>,
@@ -446,6 +729,7 @@ impl Default for Editor {
             doc: Document::default(),
             tick: 0,
             selected: 1,
+            track: Track::Layer(1),
             dirty: false,
             undo: vec![],
             redo: vec![],
@@ -540,12 +824,15 @@ mod tests {
     }
     #[test]
     fn interpolation_uses_short_rotation_and_never_introduces_future_figures() {
-        let mut d = Document::default();
-        d.keys.get_mut(&0).unwrap().figures[0].bones[0].angle = PI - 0.1;
-        let mut next = d.keys[&0].clone();
+        let mut d = Document {
+            duration: 11,
+            ..Document::default()
+        };
+        d.layers[0].keys.get_mut(&0).unwrap().figures[0].bones[0].angle = PI - 0.1;
+        let mut next = d.layers[0].keys[&0].clone();
         next.figures[0].bones[0].angle = -PI + 0.1;
         next.figures.push(Figure::blue(2, 20., 20.));
-        d.keys.insert(10, next);
+        d.layers[0].keys.insert(10, next);
         assert_eq!(d.sample(5.).figures.len(), 1);
         assert!((d.sample(5.).figures[0].bones[0].angle - PI).abs() < 0.001);
     }
@@ -558,7 +845,108 @@ mod tests {
         assert_eq!(Document::open(&file).unwrap(), doc);
         assert!(doc.save(&dir.path().join("original.styk")).is_err());
         let mut invalid = doc.clone();
-        invalid.keys.get_mut(&0).unwrap().figures[0].bones[0].parent = Some(1);
+        invalid.layers[0].keys.get_mut(&0).unwrap().figures[0].bones[0].parent = Some(1);
         assert!(invalid.validate().is_err());
+    }
+    #[test]
+    fn layer_keys_camera_and_scene_are_independent() {
+        let mut d = Document::default();
+        d.layers.push(Layer {
+            id: 2,
+            name: "Opponent".into(),
+            visible: true,
+            locked: false,
+            keys: BTreeMap::from([(
+                0,
+                Frame {
+                    figures: vec![Figure::blue(2, 700., 280.)],
+                },
+            )]),
+        });
+        d.insert_track_key(Track::Layer(2), 8, false).unwrap();
+        d.figure_mut(8, 2).unwrap().root.x = 780.;
+        assert_eq!(d.sample_layer(1, 4.).figures[0].root.x, 480.);
+        assert_eq!(d.sample_layer(2, 4.).figures[0].root.x, 740.);
+        assert_eq!(d.layers[0].keys.len(), 1);
+        let world = d.sample(4.);
+        let mut camera = d.camera(0.);
+        camera.center.x += 80.;
+        camera.zoom = 2.;
+        d.camera_keys.insert(8, camera);
+        d.scene_keys.insert(
+            5,
+            Scene {
+                background: [30, 40, 50],
+            },
+        );
+        assert_eq!(d.sample(4.), world);
+        assert_eq!(d.scene(4.).background, [255; 3]);
+        assert_eq!(d.scene(5.).background, [30, 40, 50]);
+        assert!((d.camera(4.).zoom - 1.5).abs() < 0.001);
+        let p = Point::new(300., 100.);
+        let c = d.camera(4.);
+        assert!(
+            p.distance(c.unproject(c.project(p, d.width, d.height), d.width, d.height)) < 0.001
+        );
+        d.insert_track_key(Track::Layer(2), 6, true).unwrap();
+        assert_eq!(d.sample(7.).figures.len(), 1);
+        assert_eq!(d.sample(8.).figures.len(), 2);
+        d.layers[1].visible = false;
+        assert_eq!(d.sample(8.).figures.len(), 1);
+        assert!(d.validate().is_ok());
+    }
+    #[test]
+    fn layer_lock_move_and_roundtrip_preserve_animation() {
+        let mut d = Document::walk();
+        d.layers.push(Layer {
+            id: 2,
+            name: "Destination".into(),
+            visible: true,
+            locked: false,
+            keys: BTreeMap::from([(0, Frame { figures: vec![] })]),
+        });
+        let before = d.sample(13.5);
+        d.move_to_layer(1, 2).unwrap();
+        assert_eq!(d.sample(13.5), before);
+        assert!(d.layers[0].keys.values().all(|f| f.figures.is_empty()));
+        d.layers[1].locked = true;
+        assert!(d.figure_mut(5, 1).is_err());
+        assert!(d.insert_track_key(Track::Layer(2), 5, true).is_err());
+        assert!(d.delete_track_key(Track::Layer(2), 5).is_err());
+        assert!(d.delete_track_key(Track::Camera, 0).is_err());
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("layers.rustanim.json");
+        d.save(&path).unwrap();
+        assert_eq!(Document::open(&path).unwrap(), d);
+    }
+    #[test]
+    fn old_preview_files_migrate_without_changing_poses() {
+        let doc = Document::walk();
+        let mut legacy = serde_json::to_value(&doc).unwrap();
+        let object = legacy.as_object_mut().unwrap();
+        object.insert("version".into(), serde_json::json!(1));
+        object.insert("background".into(), serde_json::json!([255, 255, 255]));
+        object.insert(
+            "keys".into(),
+            serde_json::to_value(&doc.layers[0].keys).unwrap(),
+        );
+        for field in [
+            "layers",
+            "camera_keys",
+            "scene_keys",
+            "camera_locked",
+            "scene_locked",
+        ] {
+            object.remove(field);
+        }
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("old.rustanim.json");
+        fs::write(&path, serde_json::to_vec(&legacy).unwrap()).unwrap();
+        let migrated = Document::open(&path).unwrap();
+        assert_eq!(migrated, doc);
+        assert_eq!(migrated.rendered(12.5), doc.rendered(12.5));
+        legacy.as_object_mut().unwrap().remove("width");
+        fs::write(&path, serde_json::to_vec(&legacy).unwrap()).unwrap();
+        assert!(Document::open(&path).is_err());
     }
 }
