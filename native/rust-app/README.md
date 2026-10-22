@@ -22,6 +22,24 @@ stage controls, floating selection/build/pan tools, properties on the right,
 and an exposure timeline below. Use **Fit** to reset viewport pan and zoom;
 viewport navigation does not change the exported camera.
 
+The 0.3 preview refines typography, spacing, toolbar icons, transport controls
+and color-coded key exposures. Windows uses the installed Segoe UI fonts when
+available; other systems keep the bundled font fallback.
+
+Open **File → Motion study demo**, or launch with `--showcase`, for an editable
+two-figure animation with separate layers, a locked stage and camera keys.
+The demo uses normal project records and can be posed, saved and exported.
+
+```powershell
+.\stykanimate-rust-preview.exe --showcase
+.\stykanimate-rust-preview.exe --showcase --tick 16 --screenshot C:\absolute\path\workspace.png
+.\stykanimate-rust-preview.exe --showcase --save-project C:\absolute\path\motion-study.rustanim.json
+.\stykanimate-rust-preview.exe --showcase --export-gif C:\absolute\path\motion-study.gif
+```
+
+`--tick` is zero-based. Screenshot capture uses the actual native window;
+`--save-project` and `--export-gif` export the same document without opening it.
+
 - **Camera**: select its timeline row, then edit center X/Y, zoom or rotation
   in Properties. Insert keys at different times to animate the camera. Camera
   evaluation affects the stage, PNG preview, SVG and GIF exports.

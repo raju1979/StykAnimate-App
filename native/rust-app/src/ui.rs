@@ -43,11 +43,20 @@ pub struct App {
     timeline_scroll: f32,
 }
 impl App {
+    pub fn at_tick(mut self, tick: u32) -> Self {
+        self.editor.tick = tick.min(self.editor.doc.duration - 1);
+        self
+    }
     pub fn with_track(mut self, name: Option<String>) -> Self {
         self.editor.track = match name.as_deref() {
             Some("camera") => Track::Camera,
             Some("scene") => Track::Scene,
-            _ => Track::Layer(self.editor.doc.layers[0].id),
+            _ => Track::Layer(
+                self.editor
+                    .doc
+                    .owner(self.editor.selected)
+                    .unwrap_or(self.editor.doc.layers[0].id),
+            ),
         };
         self
     }
@@ -72,7 +81,7 @@ impl App {
             selected_joint: None,
             drag: None,
             path: None,
-            status: "Native Rust preview — full feature parity is still in development".into(),
+            status: "Ready".into(),
             pending: None,
             quit_prompt: false,
             force_close: false,
@@ -221,12 +230,23 @@ impl App {
                     color,
                 );
             } else if bone.width > 0. {
-                painter.line_segment(
-                    [screen(start), screen(end)],
-                    Stroke::new(bone.width * scale, color),
-                );
-                painter.circle_filled(screen(start), bone.width * scale / 2., color);
-                painter.circle_filled(screen(end), bone.width * scale / 2., color);
+                // One capsule avoids antialias seams between a thick line and
+                // separately drawn endpoint circles at presentation zooms.
+                let a = screen(start);
+                let b = screen(end);
+                let direction = (b.y - a.y).atan2(b.x - a.x);
+                let radius = bone.width * scale / 2.;
+                let mut outline = Vec::with_capacity(18);
+                for (center, offset) in [
+                    (a, std::f32::consts::FRAC_PI_2),
+                    (b, -std::f32::consts::FRAC_PI_2),
+                ] {
+                    for i in 0..=8 {
+                        let angle = direction + offset + i as f32 * std::f32::consts::PI / 8.;
+                        outline.push(center + Vec2::new(angle.cos(), angle.sin()) * radius);
+                    }
+                }
+                painter.add(egui::Shape::convex_polygon(outline, color, Stroke::NONE));
             }
         }
         if handles {

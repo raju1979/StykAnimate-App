@@ -32,29 +32,27 @@ fn icon(ui: &egui::Ui, rect: Rect, kind: usize, color: Color32) {
             }
         }
         3 => {
-            p.add(egui::Shape::closed_line(
-                vec![
-                    at(-6., 0.),
-                    at(-3., 3.),
-                    at(-3., -5.),
-                    at(0., -6.),
-                    at(0., -1.),
-                    at(2., -6.),
-                    at(4., -5.),
-                    at(4., 0.),
-                    at(6., -3.),
-                    at(8., -1.),
-                    at(6., 7.),
-                    at(-1., 7.),
-                ],
-                stroke,
-            ));
+            p.line_segment([at(-7., 0.), at(7., 0.)], stroke);
+            p.line_segment([at(0., -7.), at(0., 7.)], stroke);
+            for (x, y, dx, dy) in [
+                (-7., 0., 3., 3.),
+                (7., 0., -3., 3.),
+                (0., -7., 3., 3.),
+                (0., 7., 3., -3.),
+            ] {
+                let points = if x != 0. {
+                    vec![at(x + dx, y - dy), at(x, y), at(x + dx, y + dy)]
+                } else {
+                    vec![at(x - dx, y + dy), at(x, y), at(x + dx, y + dy)]
+                };
+                p.add(egui::Shape::line(points, stroke));
+            }
         }
         4 => {
             p.add(egui::Shape::ellipse_stroke(c, Vec2::new(7., 4.), stroke));
             p.circle_filled(c, 2., color);
         }
-        _ => {
+        5 => {
             p.add(egui::Shape::closed_line(
                 vec![at(-5., 0.), at(5., 0.), at(5., 7.), at(-5., 7.)],
                 stroke,
@@ -64,11 +62,171 @@ fn icon(ui: &egui::Ui, rect: Rect, kind: usize, color: Color32) {
                 stroke,
             ));
         }
+        6 | 7 => {
+            let flip = if kind == 6 { 1. } else { -1. };
+            let at = |x: f32, y| c + Vec2::new(x * flip, y);
+            p.add(egui::Shape::line(
+                vec![
+                    at(-6., -2.),
+                    at(1., -2.),
+                    at(5., 1.),
+                    at(5., 5.),
+                    at(1., 7.),
+                ],
+                stroke,
+            ));
+            p.add(egui::Shape::line(
+                vec![at(-2., -6.), at(-6., -2.), at(-2., 2.)],
+                stroke,
+            ));
+        }
+        8 => {
+            p.add(egui::Shape::closed_line(
+                vec![
+                    at(-6., -7.),
+                    at(4., -7.),
+                    at(7., -4.),
+                    at(7., 7.),
+                    at(-6., 7.),
+                ],
+                stroke,
+            ));
+            p.add(egui::Shape::line(
+                vec![at(-2., -7.), at(-2., -1.), at(3., -1.), at(3., -7.)],
+                stroke,
+            ));
+            p.add(egui::Shape::line(
+                vec![at(-2., 7.), at(-2., 3.), at(3., 3.), at(3., 7.)],
+                stroke,
+            ));
+        }
+        9 => {
+            p.add(egui::Shape::closed_line(
+                vec![at(-3., -3.), at(6., -3.), at(6., 6.), at(-3., 6.)],
+                stroke,
+            ));
+            p.add(egui::Shape::line(
+                vec![at(-6., 3.), at(-6., -6.), at(3., -6.)],
+                stroke,
+            ));
+        }
+        10 => {
+            p.line_segment([at(-7., -4.), at(7., -4.)], stroke);
+            p.add(egui::Shape::line(
+                vec![at(-5., -4.), at(-4., 7.), at(4., 7.), at(5., -4.)],
+                stroke,
+            ));
+            p.line_segment([at(-2., -7.), at(2., -7.)], stroke);
+            for x in [-2., 2.] {
+                p.line_segment([at(x, -1.), at(x, 4.)], stroke);
+            }
+        }
+        11 => {
+            p.add(egui::Shape::convex_polygon(
+                vec![at(-4., -7.), at(7., 0.), at(-4., 7.)],
+                color,
+                Stroke::NONE,
+            ));
+        }
+        12 => {
+            for x in [-3., 3.] {
+                p.line_segment([at(x, -6.), at(x, 6.)], Stroke::new(3., color));
+            }
+        }
+        13..=15 => {
+            let flip = if kind == 15 { -1. } else { 1. };
+            p.add(egui::Shape::line(
+                vec![at(3. * flip, -5.), at(-3. * flip, 0.), at(3. * flip, 5.)],
+                stroke,
+            ));
+            if kind == 13 {
+                p.line_segment([at(-6., -6.), at(-6., 6.)], stroke);
+            }
+        }
+        16 => {
+            p.add(egui::Shape::closed_line(
+                vec![at(-7., -4.), at(2., -4.), at(2., 5.), at(-7., 5.)],
+                stroke,
+            ));
+            p.add(egui::Shape::closed_line(
+                vec![at(2., -2.), at(7., -5.), at(7., 6.), at(2., 3.)],
+                stroke,
+            ));
+        }
+        17 => {
+            p.add(egui::Shape::closed_line(
+                vec![at(-7., -5.), at(7., -5.), at(7., 6.), at(-7., 6.)],
+                stroke,
+            ));
+            p.line_segment([at(-7., -1.), at(7., -1.)], stroke);
+        }
+        18 => {
+            for y in [-4., 0., 4.] {
+                p.add(egui::Shape::line(
+                    vec![at(-7., y), at(0., y + 3.), at(7., y)],
+                    stroke,
+                ));
+            }
+        }
+        _ => {}
     }
+}
+
+fn semibold(text: impl Into<String>, size: f32) -> RichText {
+    RichText::new(text).font(FontId::new(size, egui::FontFamily::Name("semibold".into())))
+}
+
+fn icon_button(ui: &mut egui::Ui, kind: usize, tip: &str, primary: bool) -> egui::Response {
+    let response = ui.add_sized(
+        Vec2::new(32., 32.),
+        egui::Button::new("")
+            .fill(if primary { BLUE } else { Color32::TRANSPARENT })
+            .corner_radius(9),
+    );
+    icon(
+        ui,
+        response.rect,
+        kind,
+        if primary { Color32::WHITE } else { MUTED },
+    );
+    response.widget_info(|| egui::WidgetInfo::labeled(egui::WidgetType::Button, true, tip));
+    response.on_hover_text(tip)
 }
 
 pub(super) fn theme(ctx: &egui::Context) {
     ctx.set_theme(egui::Theme::Light);
+    // Use installed Windows UI fonts without redistributing them; the bundled
+    // egui fonts remain the fallback on other systems or missing font files.
+    let mut fonts = egui::FontDefinitions::default();
+    let mut headings = fonts.families[&egui::FontFamily::Proportional].clone();
+    if cfg!(target_os = "windows") {
+        if let Some(windows) = std::env::var_os("WINDIR") {
+            let folder = PathBuf::from(windows).join("Fonts");
+            for (name, file) in [
+                ("system-ui", "segoeui.ttf"),
+                ("system-semibold", "seguisb.ttf"),
+            ] {
+                if let Ok(bytes) = std::fs::read(folder.join(file)) {
+                    fonts
+                        .font_data
+                        .insert(name.into(), egui::FontData::from_owned(bytes).into());
+                    if name == "system-ui" {
+                        fonts
+                            .families
+                            .get_mut(&egui::FontFamily::Proportional)
+                            .unwrap()
+                            .insert(0, name.into());
+                    } else {
+                        headings.insert(0, name.into());
+                    }
+                }
+            }
+        }
+    }
+    fonts
+        .families
+        .insert(egui::FontFamily::Name("semibold".into()), headings);
+    ctx.set_fonts(fonts);
     let mut style = (*ctx.style()).clone();
     style
         .text_styles
@@ -82,7 +240,7 @@ pub(super) fn theme(ctx: &egui::Context) {
     style
         .text_styles
         .insert(egui::TextStyle::Heading, FontId::proportional(17.));
-    style.spacing.item_spacing = Vec2::new(8., 9.);
+    style.spacing.item_spacing = Vec2::new(8., 7.);
     style.spacing.button_padding = Vec2::new(12., 7.);
     style.spacing.interact_size.y = 30.;
     style.visuals = egui::Visuals::light();
@@ -111,13 +269,18 @@ pub(super) fn theme(ctx: &egui::Context) {
 }
 
 fn section(ui: &mut egui::Ui, title: &str, color: Color32) {
-    ui.add_space(7.);
-    ui.horizontal(|ui| {
-        let (r, _) = ui.allocate_exact_size(Vec2::splat(8.), Sense::hover());
-        ui.painter().circle_filled(r.center(), 3., color);
-        ui.strong(title);
-    });
-    ui.add_space(5.);
+    ui.add_space(6.);
+    ui.separator();
+    let (r, _) = ui.allocate_exact_size(Vec2::new(ui.available_width(), 24.), Sense::hover());
+    ui.painter()
+        .circle_filled(r.left_center() + Vec2::new(4., 0.), 3., color);
+    ui.painter().text(
+        r.left_center() + Vec2::new(18., 0.),
+        egui::Align2::LEFT_CENTER,
+        title,
+        FontId::new(13., egui::FontFamily::Name("semibold".into())),
+        INK,
+    );
 }
 
 impl App {
@@ -142,81 +305,148 @@ impl App {
             .frame(
                 egui::Frame::new()
                     .fill(Color32::WHITE)
-                    .inner_margin(egui::Margin::symmetric(16, 10)),
+                    .inner_margin(egui::Margin::symmetric(20, 12)),
             )
             .show(ctx, |ui| {
                 ui.horizontal(|ui| {
-                    ui.label(RichText::new("StykAnimate").size(18.).strong().color(BLUE));
-                    ui.menu_button("File", |ui| {
-                        if ui.button("New animation").clicked() {
-                            self.replace(Document::default());
-                            ui.close_menu();
-                        }
-                        if ui.button("Open project…").clicked() {
-                            self.open_dialog();
-                            ui.close_menu();
-                        }
-                        if ui.button("Save as…").clicked() {
-                            self.save(true);
-                            ui.close_menu();
-                        }
-                        ui.separator();
-                        if ui.button("Walking demo").clicked() {
-                            self.replace(Document::walk());
-                            ui.close_menu();
-                        }
-                    });
-                    ui.menu_button("Edit", |ui| {
-                        if ui.button("Undo    Ctrl+Z").clicked() {
-                            self.editor.undo();
-                            ui.close_menu();
-                        }
-                        if ui.button("Redo    Ctrl+Y").clicked() {
-                            self.editor.redo();
-                            ui.close_menu();
-                        }
-                    });
-                    ui.separator();
-                    ui.label(RichText::new(&self.editor.doc.name).strong());
-                    ui.label(
-                        RichText::new(if self.editor.dirty {
-                            "• Unsaved"
-                        } else {
-                            "• Saved"
-                        })
-                        .small()
-                        .color(if self.editor.dirty {
-                            MUTED
-                        } else {
-                            Color32::from_rgb(39, 177, 139)
-                        }),
-                    );
-                    ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
-                        ui.menu_button(RichText::new("Export").strong(), |ui| {
-                            for format in ["png", "svg", "gif"] {
-                                if ui.button(format.to_uppercase()).clicked() {
-                                    self.export(format);
-                                    ui.close_menu();
-                                }
+                    let (mark, _) = ui.allocate_exact_size(Vec2::splat(28.), Sense::hover());
+                    ui.painter().rect_filled(mark, 8., BLUE);
+                    let c = mark.center();
+                    let stroke = Stroke::new(1.7, Color32::WHITE);
+                    ui.painter()
+                        .circle_filled(c + Vec2::new(1., -7.), 2.1, Color32::WHITE);
+                    for (a, b) in [
+                        ((1., -3.), (-1., 3.)),
+                        ((-1., 3.), (-6., 8.)),
+                        ((-1., 3.), (5., 8.)),
+                        ((0., 0.), (-6., -1.)),
+                        ((0., 0.), (6., -3.)),
+                    ] {
+                        ui.painter().line_segment(
+                            [c + Vec2::new(a.0, a.1), c + Vec2::new(b.0, b.1)],
+                            stroke,
+                        );
+                    }
+                    ui.label(semibold("StykAnimate", 18.));
+                    if ui.available_width() > 1050. {
+                        ui.label(RichText::new("RUST PREVIEW").size(9.).color(MUTED));
+                    }
+                    ui.add_space(10.);
+                    ui.scope(|ui| {
+                        ui.visuals_mut().widgets.inactive.weak_bg_fill = Color32::TRANSPARENT;
+                        ui.menu_button("File", |ui| {
+                            if ui.button("New animation").clicked() {
+                                self.replace(Document::default());
+                                ui.close_menu();
+                            }
+                            if ui.button("Open project…").clicked() {
+                                self.open_dialog();
+                                ui.close_menu();
+                            }
+                            if ui.button("Save as…").clicked() {
+                                self.save(true);
+                                ui.close_menu();
+                            }
+                            ui.separator();
+                            if ui.button("Motion study demo").clicked() {
+                                self.replace(crate::demos::showcase());
+                                ui.close_menu();
+                            }
+                            if ui.button("Walking demo").clicked() {
+                                self.replace(Document::walk());
+                                ui.close_menu();
                             }
                         });
-                        if ui.button("Save").clicked() {
+                        ui.menu_button("Edit", |ui| {
+                            if ui.button("Undo    Ctrl+Z").clicked() {
+                                self.playing = false;
+                                self.editor.undo();
+                                ui.close_menu();
+                            }
+                            if ui.button("Redo    Ctrl+Y").clicked() {
+                                self.playing = false;
+                                self.editor.redo();
+                                ui.close_menu();
+                            }
+                        });
+                    });
+                    if ui.available_width() > 620. {
+                        ui.separator();
+                        ui.add(egui::Label::new(semibold(&self.editor.doc.name, 12.)).truncate());
+                        let text = if self.editor.dirty {
+                            "Unsaved"
+                        } else if self.path.is_some() {
+                            "Saved"
+                        } else {
+                            "Ready"
+                        };
+                        ui.label(RichText::new(format!("• {text}")).size(11.).color(
+                            if self.editor.dirty {
+                                MUTED
+                            } else {
+                                Color32::from_rgb(37, 167, 130)
+                            },
+                        ));
+                    }
+                    ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
+                        ui.scope(|ui| {
+                            ui.visuals_mut().widgets.inactive.weak_bg_fill = INK;
+                            ui.menu_button(
+                                semibold("Export  ↗", 12.).color(Color32::WHITE),
+                                |ui| {
+                                    ui.visuals_mut().widgets.inactive.weak_bg_fill = SOFT;
+                                    for (format, label) in [
+                                        ("png", "PNG image"),
+                                        ("svg", "SVG artwork"),
+                                        ("gif", "Animated GIF"),
+                                    ] {
+                                        if ui.button(label).clicked() {
+                                            self.export(format);
+                                            ui.close_menu();
+                                        }
+                                    }
+                                },
+                            );
+                        });
+                        if icon_button(ui, 8, "Save project · Ctrl+S", false).clicked() {
                             self.save(false);
                         }
-                        if ui.button("Redo").clicked() {
+                        ui.separator();
+                        if icon_button(ui, 7, "Redo · Ctrl+Y", false).clicked() {
+                            self.playing = false;
                             self.editor.redo();
                         }
-                        if ui.button("Undo").clicked() {
+                        if icon_button(ui, 6, "Undo · Ctrl+Z", false).clicked() {
+                            self.playing = false;
                             self.editor.undo();
                         }
                         ui.add_space(14.);
-                        if ui.selectable_label(self.build, "Build").clicked() {
-                            self.build = true;
-                            self.pan_tool = false;
-                        }
-                        if ui.selectable_label(!self.build, "Animate").clicked() {
-                            self.build = false;
-                        }
+                        egui::Frame::new()
+                            .fill(SOFT)
+                            .corner_radius(20)
+                            .inner_margin(3)
+                            .show(ui, |ui| {
+                                ui.horizontal(|ui| {
+                                    ui.spacing_mut().item_spacing.x = 2.;
+                                    for (name, build) in [("Animate", false), ("Build", true)] {
+                                        if ui
+                                            .add(
+                                                egui::Button::new(semibold(name, 12.))
+                                                    .fill(if self.build == build {
+                                                        Color32::WHITE
+                                                    } else {
+                                                        Color32::TRANSPARENT
+                                                    })
+                                                    .corner_radius(16),
+                                            )
+                                            .clicked()
+                                        {
+                                            self.build = build;
+                                            self.pan_tool = false;
+                                        }
+                                    }
+                                });
+                            });
                     });
                 });
             });
@@ -224,11 +454,11 @@ impl App {
             .frame(
                 egui::Frame::new()
                     .fill(Color32::WHITE)
-                    .inner_margin(egui::Margin::symmetric(16, 7)),
+                    .inner_margin(egui::Margin::symmetric(20, 7)),
             )
             .show(ctx, |ui| {
                 ui.horizontal(|ui| {
-                    if ui.button("Scene").clicked() {
+                    if ui.add(egui::Button::new("Scene").frame(false)).clicked() {
                         self.editor.track = Track::Scene;
                     }
                     ui.label(
@@ -236,24 +466,37 @@ impl App {
                             "{} × {}",
                             self.editor.doc.width, self.editor.doc.height
                         ))
+                        .size(11.)
                         .color(MUTED),
                     );
                     if self.build {
                         ui.separator();
                         ui.selectable_value(&mut self.circle, false, "Line");
                         ui.selectable_value(&mut self.circle, true, "Circle");
-                        ui.small("Select a joint, then click to add a part");
                     }
                     ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
-                        if ui.button("Fit").clicked() {
+                        if ui
+                            .add(egui::Button::new("Fit").frame(false))
+                            .on_hover_text("Fit canvas and reset viewport pan")
+                            .clicked()
+                        {
                             self.zoom = 1.;
                             self.pan = Vec2::ZERO;
                         }
-                        ui.add(
-                            egui::Slider::new(&mut self.zoom, 0.25..=3.)
-                                .show_value(false)
-                                .text("Zoom"),
-                        );
+                        let mut percent = self.zoom * 100.;
+                        if ui
+                            .add(
+                                egui::DragValue::new(&mut percent)
+                                    .range(25..=300)
+                                    .suffix("%")
+                                    .speed(1.),
+                            )
+                            .on_hover_text("Viewport zoom")
+                            .changed()
+                        {
+                            self.zoom = percent / 100.;
+                        }
+                        ui.separator();
                         ui.toggle_value(&mut self.grid, "Grid");
                         ui.toggle_value(&mut self.onion, "Onion skins");
                         ui.toggle_value(&mut self.handles, "Joints");
@@ -270,9 +513,14 @@ impl App {
             .frame(egui::Frame::new().fill(Color32::WHITE).inner_margin(16))
             .show(ctx, |ui| {
                 ui.horizontal(|ui| {
-                    ui.strong("Properties");
+                    ui.label(semibold("Properties", 14.));
                     ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
-                        ui.label(RichText::new("NATIVE RUST").size(10.).color(MUTED));
+                        let kind = match self.editor.track {
+                            Track::Camera => "CAMERA",
+                            Track::Scene => "SCENE",
+                            Track::Layer(_) => "FIGURE / LAYER",
+                        };
+                        ui.label(RichText::new(kind).size(9.).color(MUTED));
                     });
                 });
                 ui.add_space(8.);
@@ -433,12 +681,27 @@ impl App {
             return;
         };
         let uid = f.id;
-        section(ui, &f.name, BLUE);
+        ui.add_space(12.);
         ui.horizontal(|ui| {
-            if ui.button("Duplicate").clicked() {
+            let (r, _) = ui.allocate_exact_size(Vec2::splat(30.), Sense::hover());
+            ui.painter()
+                .rect_filled(r, 9., Color32::from_rgb(f.color[0], f.color[1], f.color[2]));
+            icon(ui, r, 2, Color32::WHITE);
+            ui.label(semibold(&f.name, 17.));
+        });
+        ui.add_space(10.);
+        let half = (ui.available_width() - 8.) / 2.;
+        ui.horizontal(|ui| {
+            if ui
+                .add_sized(Vec2::new(half, 32.), egui::Button::new("Duplicate"))
+                .clicked()
+            {
                 self.edit("duplicate_figure", json!({"uid":uid}));
             }
-            if ui.button("Delete").clicked() {
+            if ui
+                .add_sized(Vec2::new(half, 32.), egui::Button::new("Delete"))
+                .clicked()
+            {
                 self.edit("delete_figure", json!({"uid":uid}));
             }
         });
@@ -447,14 +710,16 @@ impl App {
         let mut changed = false;
         ui.horizontal(|ui| {
             changed |= ui
-                .add(
+                .add_sized(
+                    Vec2::new(half, 34.),
                     egui::DragValue::new(&mut root.x)
                         .prefix("X  ")
                         .suffix(" px"),
                 )
                 .changed();
             changed |= ui
-                .add(
+                .add_sized(
+                    Vec2::new(half, 34.),
                     egui::DragValue::new(&mut root.y)
                         .prefix("Y  ")
                         .suffix(" px"),
@@ -469,12 +734,13 @@ impl App {
         }
         section(ui, "Appearance", Color32::from_rgb(241, 124, 74));
         let mut color = f.color;
-        ui.horizontal(|ui| {
+        egui::Frame::new().fill(SOFT).corner_radius(9).inner_margin(8).show(ui,|ui| {ui.set_min_width(ui.available_width());ui.horizontal(|ui| {
             if ui.color_edit_button_srgb(&mut color).changed() {self.edit("set_figure_color",json!({"uid":uid,"color":format!("#{:02x}{:02x}{:02x}",color[0],color[1],color[2])}));}
-            ui.label(format!("#{:02X}{:02X}{:02X}",color[0],color[1],color[2]));
-        });
+            ui.label(RichText::new(format!("#{:02X}{:02X}{:02X}",color[0],color[1],color[2])).monospace().size(12.));
+        });});
         section(ui, "Arrange", Color32::from_rgb(46, 177, 141));
         egui::ComboBox::from_id_salt("figure_layer")
+            .width(ui.available_width())
             .selected_text(&layer.name)
             .show_ui(ui, |ui| {
                 let layers = self
@@ -602,104 +868,131 @@ impl App {
     }
 
     pub(super) fn timeline(&mut self, ctx: &egui::Context) {
-        egui::TopBottomPanel::bottom("timeline").resizable(true).default_height(238.).height_range(180.0..=460.0)
+        egui::TopBottomPanel::bottom("timeline").resizable(true).default_height(274.).height_range(210.0..=480.0)
             .frame(egui::Frame::new().fill(Color32::WHITE).inner_margin(0)).show(ctx,|ui| {
-            egui::Frame::new().inner_margin(egui::Margin::symmetric(12,7)).show(ui,|ui| {
-                ui.horizontal(|ui| {
-                    ui.label(RichText::new("Advanced").strong());ui.separator();
-                    if ui.button("+ Keyframe").clicked() {self.edit("insert_keyframe",json!({"tick":self.editor.tick}));}
-                    if ui.button("Blank").clicked() {self.edit("blank_keyframe",json!({"tick":self.editor.tick}));}
-                    if ui.add_enabled(self.editor.tick>0,egui::Button::new("Delete key")).clicked() {self.edit("delete_keyframe",json!({"tick":self.editor.tick}));}
-                    ui.separator();
-                    if ui.button("|<").on_hover_text("First frame").clicked() {self.editor.tick=0;self.playing=false;}
-                    if ui.button("<").on_hover_text("Previous frame").clicked() {self.editor.tick=self.editor.tick.saturating_sub(1);self.playing=false;}
-                    if ui.button(if self.playing {"Pause"} else {"Play"}).clicked() {self.toggle_play();}
-                    if ui.button(">").on_hover_text("Next frame").clicked() {self.editor.tick=(self.editor.tick+1).min(self.editor.doc.duration-1);self.playing=false;}
-                    ui.label(RichText::new(format!("{:02}:{:02}:{:02}",self.editor.tick/self.editor.doc.fps/60,self.editor.tick/self.editor.doc.fps%60,self.editor.tick%self.editor.doc.fps)).monospace());
-                    ui.label(RichText::new(format!("{} fps",self.editor.doc.fps)).color(MUTED));
+                egui::Frame::new().inner_margin(egui::Margin::symmetric(16,8)).show(ui,|ui| {
+                    ui.horizontal(|ui| {
+                        ui.label(semibold("Timeline",13.));
+                        ui.add_space(8.);
+                        if ui.button("+ Keyframe").clicked() {self.edit("insert_keyframe",json!({"tick":self.editor.tick}));}
+                        ui.menu_button("Key actions",|ui| {
+                            if ui.add_enabled(matches!(self.editor.track,Track::Layer(_)),egui::Button::new("Insert blank exposure")).clicked() {self.edit("blank_keyframe",json!({"tick":self.editor.tick}));ui.close_menu();}
+                            if ui.add_enabled(self.editor.tick>0,egui::Button::new("Delete keyframe")).clicked() {self.edit("delete_keyframe",json!({"tick":self.editor.tick}));ui.close_menu();}
+                        });
+                        ui.add_space(16.);ui.separator();ui.add_space(8.);
+                        if icon_button(ui,13,"First frame",false).clicked() {self.editor.tick=0;self.playing=false;}
+                        if icon_button(ui,14,"Previous frame",false).clicked() {self.editor.tick=self.editor.tick.saturating_sub(1);self.playing=false;}
+                        if icon_button(ui,if self.playing {12}else{11},"Play / pause · Space",true).clicked() {self.toggle_play();}
+                        if icon_button(ui,15,"Next frame",false).clicked() {self.editor.tick=(self.editor.tick+1).min(self.editor.doc.duration-1);self.playing=false;}
+                        ui.add_space(10.);
+                        ui.label(RichText::new(format!("{:02}:{:02}:{:02}",self.editor.tick/self.editor.doc.fps/60,self.editor.tick/self.editor.doc.fps%60,self.editor.tick%self.editor.doc.fps)).monospace().size(12.));
+                        ui.label(RichText::new(format!("{} fps",self.editor.doc.fps)).size(11.).color(MUTED));
+                        if ui.available_width()>160. {
+                            ui.with_layout(Layout::right_to_left(Align::Center),|ui| {ui.label(RichText::new(format!("Frame {} / {}",self.editor.tick+1,self.editor.doc.duration)).size(11.).color(MUTED));});
+                        }
+                    });
                 });
-            });
-            ui.separator();
-            let gutter=220.;let cell=14.;let row_height=30.;
-            let mut rows=vec![(Track::Camera,"Camera".to_owned(),Color32::from_rgb(183,112,26),self.editor.doc.camera_keys.keys().copied().collect::<Vec<_>>()),
-                (Track::Scene,"Scene".to_owned(),Color32::from_rgb(132,91,235),self.editor.doc.scene_keys.keys().copied().collect())];
-            for l in self.editor.doc.layers.iter().rev() {rows.push((Track::Layer(l.id),l.name.clone(),BLUE,l.keys.keys().copied().collect()));}
-            let available=ui.available_height()-25.;
-            ui.horizontal_top(|ui| {
-                ui.spacing_mut().item_spacing.x=0.;
-                ui.allocate_ui_with_layout(Vec2::new(gutter,available),Layout::top_down(Align::Min),|ui| {
-                    ui.spacing_mut().item_spacing.y=0.;
-                    ui.horizontal(|ui| {ui.add_space(12.);ui.label(RichText::new("Layers").small().color(MUTED));if ui.small_button("+").on_hover_text("Add layer").clicked() {self.edit("add_layer",json!({"name":format!("Layer {}",self.editor.doc.layers.len()+1)}));}});
-                    ui.spacing_mut().item_spacing.y=0.;
-                    let names = egui::ScrollArea::vertical().id_salt("layer_names").vertical_scroll_offset(self.timeline_scroll).max_height(available-30.).show(ui,|ui| {
-                        for (track,name,color,_) in &rows {
-                            let (r,_) = ui.allocate_exact_size(Vec2::new(gutter,row_height),Sense::hover());
-                            if self.editor.track==*track {ui.painter().rect_filled(r,0.,Color32::from_rgb(231,244,255));}
-                            ui.painter().line_segment([r.left_bottom(),r.right_bottom()],Stroke::new(1.,LINE));
-                            ui.painter().circle_filled(Pos2::new(r.left()+16.,r.center().y),3.,*color);
-                            if ui.put(Rect::from_min_max(r.min+Vec2::new(27.,0.),r.max-Vec2::new(61.,0.)),egui::Button::new(RichText::new(name).color(*color)).frame(false)).clicked() {self.editor.track = *track;self.editor.selected=0;self.selected_joint=None;}
-                            if let Track::Layer(id)=track {
-                                if let Ok(l)=self.editor.doc.layer(*id).cloned() {
-                                    let eye=Rect::from_min_size(Pos2::new(r.right()-59.,r.top()+3.),Vec2::new(27.,24.));
-                                    let lock=Rect::from_min_size(Pos2::new(r.right()-30.,r.top()+3.),Vec2::new(27.,24.));
-                                    if ui.put(eye,egui::Button::new("").frame(false)).on_hover_text("Toggle visibility").clicked() {self.edit("set_layer",json!({"layerId":id,"visible":!l.visible}));}
-                                    if ui.put(lock,egui::Button::new("").frame(false)).on_hover_text("Lock / unlock layer").clicked() {self.edit("set_layer",json!({"layerId":id,"locked":!l.locked}));}
-                                    icon(ui,eye,4,if l.visible {MUTED}else{LINE});icon(ui,lock,5,if l.locked {BLUE}else{MUTED});
+                ui.separator();
+                let gutter=224.;let cell=14.;let row_height=32.;let ruler=30.;
+                let mut rows=vec![
+                    (Track::Camera,"Camera".to_owned(),Color32::from_rgb(190,135,53),self.editor.doc.camera_keys.keys().copied().collect::<Vec<_>>()),
+                    (Track::Scene,"Scene".to_owned(),Color32::from_rgb(138,109,216),self.editor.doc.scene_keys.keys().copied().collect()),
+                ];
+                for l in self.editor.doc.layers.iter().rev() {
+                    let color=l.keys.values().flat_map(|f|f.figures.iter()).next().map(|f|Color32::from_rgb(f.color[0],f.color[1],f.color[2])).unwrap_or(BLUE);
+                    rows.push((Track::Layer(l.id),l.name.clone(),color,l.keys.keys().copied().collect()));
+                }
+                let available=(ui.available_height()-27.).max(80.);
+                ui.horizontal_top(|ui| {
+                    ui.spacing_mut().item_spacing=Vec2::ZERO;
+                    ui.allocate_ui_with_layout(Vec2::new(gutter,available),Layout::top_down(Align::Min),|ui| {
+                        ui.spacing_mut().item_spacing.y=0.;
+                        let (header,_)=ui.allocate_exact_size(Vec2::new(gutter,ruler),Sense::hover());
+                        ui.painter().text(header.left_center()+Vec2::new(16.,0.),egui::Align2::LEFT_CENTER,"LAYERS",FontId::proportional(10.),MUTED);
+                        if ui.put(Rect::from_center_size(Pos2::new(header.right()-22.,header.center().y),Vec2::new(24.,24.)),egui::Button::new("+").frame(false)).on_hover_text("Add layer").clicked() {self.edit("add_layer",json!({"name":format!("Layer {}",self.editor.doc.layers.len()+1)}));}
+                        let names=egui::ScrollArea::vertical().id_salt("layer_names").vertical_scroll_offset(self.timeline_scroll).max_height(available-ruler).show(ui,|ui| {
+                            for (track,name,color,_) in &rows {
+                                let (r,_)=ui.allocate_exact_size(Vec2::new(gutter,row_height),Sense::hover());
+                                if self.editor.track==*track {ui.painter().rect_filled(r,0.,Color32::from_rgb(234,246,255));}
+                                ui.painter().line_segment([r.left_bottom(),r.right_bottom()],Stroke::new(0.6,LINE));
+                                let symbol=match track {Track::Camera=>16,Track::Scene=>17,_=>18};
+                                icon(ui,Rect::from_center_size(Pos2::new(r.left()+22.,r.center().y),Vec2::splat(20.)),symbol,*color);
+                                let label=Rect::from_min_max(r.min+Vec2::new(40.,0.),r.max-Vec2::new(62.,0.));
+                                let response=ui.interact(label,ui.id().with(format!("track-{track:?}")),Sense::click());
+                                ui.painter().with_clip_rect(label).text(label.left_center(),egui::Align2::LEFT_CENTER,name,FontId::new(12.,egui::FontFamily::Name("semibold".into())),INK);
+                                if response.clicked() {self.editor.track = *track;self.editor.selected=0;self.selected_joint=None;}
+                                let lock=Rect::from_center_size(Pos2::new(r.right()-20.,r.center().y),Vec2::new(26.,26.));
+                                if let Track::Layer(id)=track {
+                                    if let Ok(layer)=self.editor.doc.layer(*id).cloned() {
+                                        let eye=lock.translate(Vec2::new(-28.,0.));
+                                        if ui.put(eye,egui::Button::new("").frame(false)).on_hover_text("Show / hide layer").clicked() {self.edit("set_layer",json!({"layerId":id,"visible":!layer.visible}));}
+                                        icon(ui,eye,4,if layer.visible {MUTED}else{LINE});
+                                        if ui.put(lock,egui::Button::new("").frame(false)).on_hover_text("Lock / unlock layer").clicked() {self.edit("set_layer",json!({"layerId":id,"locked":!layer.locked}));}
+                                        icon(ui,lock,5,if layer.locked {BLUE}else{Color32::from_rgb(173,182,197)});
+                                    }
+                                } else {
+                                    let locked=self.editor.doc.track_locked(*track);
+                                    if ui.put(lock,egui::Button::new("").frame(false)).on_hover_text("Lock / unlock track").clicked() {self.edit("set_track_lock",json!({"track":if *track==Track::Camera {"camera"}else{"scene"},"locked":!locked}));}
+                                    icon(ui,lock,5,if locked {BLUE}else{Color32::from_rgb(173,182,197)});
                                 }
-                            } else {
-                                let locked=self.editor.doc.track_locked(*track);
-                                let lock=Rect::from_min_size(Pos2::new(r.right()-30.,r.top()+3.),Vec2::new(27.,24.));
-                                if ui.put(lock,egui::Button::new("").frame(false)).on_hover_text("Lock / unlock track").clicked() {self.edit("set_track_lock",json!({"track":if *track==Track::Camera {"camera"}else{"scene"},"locked":!locked}));}
-                                icon(ui,lock,5,if locked {BLUE}else{MUTED});
+                            }
+                        });
+                        if ui.rect_contains_pointer(names.inner_rect) {self.timeline_scroll=names.state.offset.y;}
+                    });
+                    let grid=egui::ScrollArea::both().id_salt("track_grid").vertical_scroll_offset(self.timeline_scroll).max_height(available).show_viewport(ui,|ui,view| {
+                        let width=(self.editor.doc.duration.max(100) as f32*cell).max(ui.available_width());
+                        let (r,response)=ui.allocate_exact_size(Vec2::new(width,ruler+rows.len() as f32*row_height),Sense::click_and_drag());
+                        let painter=ui.painter();let end_x=r.left()+self.editor.doc.duration as f32*cell;
+                        painter.rect_filled(r,0.,SOFT);
+                        painter.rect_filled(Rect::from_min_max(r.min,Pos2::new(end_x,r.bottom())),0.,Color32::WHITE);
+                        let a=(view.left()/cell).floor().max(0.) as u32;
+                        let b=((view.right()/cell).ceil() as u32+1).min(10000);
+                        for (i,(track,_,color,keys)) in rows.iter().enumerate() {
+                            let y=r.top()+ruler+i as f32*row_height;
+                            let row=Rect::from_min_size(Pos2::new(r.left(),y),Vec2::new(width,row_height));
+                            if self.editor.track==*track {painter.rect_filled(row,0.,Color32::from_rgb(239,248,255));}
+                            painter.line_segment([row.left_bottom(),row.right_bottom()],Stroke::new(0.6,LINE));
+                            let tint=Color32::from_rgb((color.r() as f32*0.16+255.*0.84) as u8,(color.g() as f32*0.16+255.*0.84) as u8,(color.b() as f32*0.16+255.*0.84) as u8);
+                            for (j,tick) in keys.iter().enumerate() {
+                                let end=keys.get(j+1).copied().unwrap_or(self.editor.doc.duration);
+                                if end<a || *tick>b {continue;}
+                                let x=r.left()+*tick as f32*cell;let right=r.left()+end as f32*cell;
+                                let blank=if let Track::Layer(id)=track {self.editor.doc.layer(*id).ok().and_then(|l|l.keys.get(tick)).is_some_and(|f|f.figures.is_empty())}else{false};
+                                if !blank {painter.rect_filled(Rect::from_min_max(Pos2::new(x+1.,y+6.),Pos2::new(right-1.,y+row_height-6.)),4.,tint);}
+                                let c=Pos2::new(x+cell/2.,y+row_height/2.);
+                                let diamond=vec![c+Vec2::new(0.,-3.5),c+Vec2::new(3.5,0.),c+Vec2::new(0.,3.5),c+Vec2::new(-3.5,0.)];
+                                painter.add(egui::Shape::convex_polygon(diamond,if blank {Color32::WHITE}else{*color},Stroke::new(1.,*color)));
+                            }
+                        }
+                        for tick in a..b {
+                            let x=r.left()+tick as f32*cell;
+                            let major=tick%5==0;
+                            painter.line_segment([Pos2::new(x,r.top()+ruler-4.),Pos2::new(x,r.bottom())],Stroke::new(0.4,if major {LINE}else{Color32::from_rgba_unmultiplied(229,232,240,100)}));
+                            if tick==0 || (tick+1)%5==0 {painter.text(Pos2::new(x+4.,r.top()+13.),egui::Align2::LEFT_CENTER,(tick+1).to_string(),FontId::proportional(10.),MUTED);}
+                        }
+                        painter.line_segment([Pos2::new(end_x,r.top()),Pos2::new(end_x,r.bottom())],Stroke::new(1.,LINE));
+                        let x=r.left()+(self.editor.tick as f32+0.5)*cell;
+                        painter.line_segment([Pos2::new(x,r.top()+ruler-4.),Pos2::new(x,r.bottom())],Stroke::new(1.5,BLUE));
+                        let head=Rect::from_center_size(Pos2::new(x,r.top()+13.),Vec2::new(26.,22.));
+                        painter.rect_filled(head,5.,BLUE);painter.text(head.center(),egui::Align2::CENTER_CENTER,(self.editor.tick+1).to_string(),FontId::proportional(11.),Color32::WHITE);
+                        if response.clicked() || response.dragged() {
+                            if let Some(p)=response.interact_pointer_pos() {
+                                self.playing=false;self.editor.tick=(((p.x-r.left())/cell).floor().max(0.) as u32).min(self.editor.doc.duration-1);
+                                if p.y>=r.top()+ruler {let i=((p.y-r.top()-ruler)/row_height) as usize;if let Some((track,_,_,_))=rows.get(i) {self.editor.track = *track;self.editor.selected=0;}}
                             }
                         }
                     });
-                    if ui.rect_contains_pointer(names.inner_rect) {self.timeline_scroll=names.state.offset.y;}
+                    if ui.rect_contains_pointer(grid.inner_rect) {self.timeline_scroll=grid.state.offset.y;}
                 });
-                let grid = egui::ScrollArea::both().id_salt("track_grid").vertical_scroll_offset(self.timeline_scroll).max_height(available).show_viewport(ui,|ui,view| {
-                    let width=(self.editor.doc.duration.max(120) as f32*cell).max(ui.available_width());
-                    let (r,response)=ui.allocate_exact_size(Vec2::new(width,30.+rows.len() as f32*row_height),Sense::click_and_drag());
-                    let painter=ui.painter();
-                    let a=(view.left()/cell).floor().max(0.) as u32;
-                    let b=((view.right()/cell).ceil() as u32+1).min(10000);
-                    painter.rect_filled(r,0.,SOFT);
-                    for tick in a..b {
-                        let x=r.left()+tick as f32*cell;
-                        painter.line_segment([Pos2::new(x,r.top()),Pos2::new(x,r.bottom())],Stroke::new(0.5,LINE));
-                        if tick==0 || (tick+1)%5==0 {painter.text(Pos2::new(x+3.,r.top()+12.),egui::Align2::LEFT_CENTER,(tick+1).to_string(),FontId::proportional(10.),MUTED);}
-                    }
-                    for (i,(track,_,_,keys)) in rows.iter().enumerate() {
-                        let y=r.top()+30.+i as f32*row_height;
-                        let rr=Rect::from_min_size(Pos2::new(r.left(),y),Vec2::new(width,row_height));
-                        if self.editor.track==*track {painter.rect_filled(rr,0.,Color32::from_rgb(236,246,255));}
-                        painter.line_segment([rr.left_bottom(),rr.right_bottom()],Stroke::new(1.,LINE));
-                        for (j,tick) in keys.iter().enumerate() {
-                            let end=keys.get(j+1).copied().unwrap_or(self.editor.doc.duration);
-                            if end<a || *tick>b {continue;}
-                            let x=r.left()+*tick as f32*cell;
-                            let right=r.left()+end as f32*cell;
-                            painter.rect_filled(Rect::from_min_max(Pos2::new(x+2.,y+5.),Pos2::new(right-2.,y+row_height-5.)),4.,Color32::from_rgb(210,215,226));
-                            let dot=Pos2::new(x+cell/2.,y+row_height/2.);
-                            let blank=if let Track::Layer(id)=track {self.editor.doc.layer(*id).ok().and_then(|l|l.keys.get(tick)).is_some_and(|f|f.figures.is_empty())}else{false};
-                            if blank {painter.circle_stroke(dot,3.,Stroke::new(1.,MUTED));} else {painter.circle_filled(dot,3.,INK);}
-                        }
-                    }
-                    let end=r.left()+self.editor.doc.duration as f32*cell;
-                    painter.line_segment([Pos2::new(end,r.top()),Pos2::new(end,r.bottom())],Stroke::new(1.,MUTED));
-                    let x=r.left()+(self.editor.tick as f32+0.5)*cell;
-                    painter.line_segment([Pos2::new(x,r.top()),Pos2::new(x,r.bottom())],Stroke::new(1.5,BLUE));
-                    let head=Rect::from_center_size(Pos2::new(x,r.top()+12.),Vec2::new(24.,23.));
-                    painter.rect_filled(head,4.,BLUE);painter.text(head.center(),egui::Align2::CENTER_CENTER,(self.editor.tick+1).to_string(),FontId::proportional(11.),Color32::WHITE);
-                    if response.clicked() || response.dragged() {if let Some(p)=response.interact_pointer_pos() {
-                        self.playing=false;self.editor.tick=((p.x-r.left())/cell).floor().max(0.) as u32;
-                        self.editor.tick=self.editor.tick.min(self.editor.doc.duration-1);
-                        if p.y>=r.top()+30. {let i=((p.y-r.top()-30.)/row_height) as usize;if let Some((track,_,_,_))=rows.get(i) {self.editor.track = *track;self.editor.selected=0;}}
-                    }}
+                ui.horizontal(|ui| {
+                    ui.add_space(16.);ui.label(RichText::new(&self.status).size(10.).color(MUTED));
+                    if let Some((cancel,_))=&self.export {if ui.small_button("Cancel export").clicked() {cancel.store(true,Ordering::Relaxed);}}
+                    ui.with_layout(Layout::right_to_left(Align::Center),|ui| {
+                        ui.label(RichText::new(if self.bridge.is_some() {"● MCP enabled"}else{"MCP off"}).size(10.).color(if self.bridge.is_some() {Color32::from_rgb(37,167,130)}else{MUTED})).on_hover_text("Local AI control through MCP. Enable the bridge to connect a client.");
+                        ui.add_space(12.);ui.label(RichText::new(format!("{} layers  ·  Native preview",self.editor.doc.layers.len())).size(10.).color(MUTED));
+                    });
                 });
-                if ui.rect_contains_pointer(grid.inner_rect) {self.timeline_scroll=grid.state.offset.y;}
             });
-            ui.horizontal(|ui| {ui.add_space(12.);ui.label(RichText::new(&self.status).size(10.).color(MUTED));if let Some((cancel,_))=&self.export {if ui.small_button("Cancel export").clicked() {cancel.store(true,Ordering::Relaxed);}}});
-        });
     }
 
     pub(super) fn stage(&mut self, ctx: &egui::Context) {
